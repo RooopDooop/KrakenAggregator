@@ -112,9 +112,22 @@ CREATE PROCEDURE insertOHLC
 	@JSONData VARCHAR(MAX)
 AS
 BEGIN
+	/*Actually add the insert, whoops.*/
 	SELECT GETDATE() AS RetreivedDate, *
 	FROM OPENJSON(@JSONData)
 	WITH (PairID int, epochTime int, priceOpen decimal(38, 14), priceHigh decimal(38, 14), priceLow decimal(38, 14), priceClose decimal(38, 14), VWAP decimal(38, 14), Volume decimal(38, 14), OHLCCount int) as insertValues
+END
+GO
+
+CREATE PROCEDURE insertFiatConversion
+	 @convEpoch int, 
+	 @convFromID int, 
+	 @convToID int, 
+	 @convRate decimal(38, 14)
+AS
+BEGIN
+	INSERT INTO [KrakenDB].[dbo].[FiatConversionRates] (ConvDate, ConvEpoch, AssetFromID, AssetToID, ConvRate)
+	VALUES (GETDATE(), @convEpoch, @convFromID, @convToID, @convRate); 
 END
 GO
 /*-------------------------------------------------Stored proceedures-------------------------------------------------*/

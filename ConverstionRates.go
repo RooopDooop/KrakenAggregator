@@ -67,7 +67,7 @@ func GetFiatExchange() {
 		conversionEpoch := int(response["info"].(map[string]interface{})["timestamp"].(float64))
 		conversionRate := fmt.Sprintf("%f", response["info"].(map[string]interface{})["rate"].(float64))
 
-		sqlInsertConv := "EXEC [KrakenDB].[dbo].[insertFiatConversion] @convEpoch = " + strconv.Itoa(conversionEpoch) + ", @convFromID = " + strconv.Itoa(objFiat.FiatID) + ", @convToID = 5021, @convRate = " + conversionRate
+		sqlInsertConv := "EXEC [KrakenDB].[dbo].[insertFiatConversion] @convEpoch = " + strconv.Itoa(conversionEpoch) + ", @convFromID = " + strconv.Itoa(objFiat.FiatID) + ", @convToID = 175, @convRate = " + conversionRate
 
 		_, errInsertConv := deb.Exec(sqlInsertConv)
 
