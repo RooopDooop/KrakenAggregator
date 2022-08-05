@@ -91,8 +91,6 @@ func watchTicker() {
 				panic(errInsert)
 			}
 		}
-
-		//fmt.Println(objPairData.AlternativeName)
 	}
 }
 

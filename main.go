@@ -38,9 +38,9 @@ func connectToDB() {
 	GetAssetInfo()
 	GetAssetPairData()
 	GetFiatExchange()
-	/*watchTicker()
+	watchTicker()
 	watchOHLC()
-	watchTrades()
+	/*watchTrades()
 
 	fmt.Println("Arming CRON jobs...")
 

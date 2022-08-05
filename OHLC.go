@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"strconv"
 )
 
 type OHCLObject struct {
@@ -21,21 +20,8 @@ type OHCLObject struct {
 	Count      int    `json:"count"`
 }
 
-type detectedEpoch struct {
-	PairID int `json:"PairID"`
-	Epoch  int `json:"epochTime"`
-}
-
 func watchOHLC() {
-	//Set only one object array here, populate it and then push the entire array to MSSQL, the SQL server will handle doing the filtering of what should and shouldn't be entered
-	var threadOne []OHCLObject = []OHCLObject{}
-	var threadTwo []OHCLObject = []OHCLObject{}
-	var threadThree []OHCLObject = []OHCLObject{}
-	var threadFour []OHCLObject = []OHCLObject{}
-
-	var threadCycle int = 0
-
-	var arrEpochsAndID []interface{}
+	var arrOHCLObject []OHCLObject = []OHCLObject{}
 
 	for _, objPairData := range getPairs() {
 		fmt.Println("Pulling OHLC data for: " + objPairData.AlternativeName)
@@ -73,23 +59,7 @@ func watchOHLC() {
 							Count:      int(OHLCData.([]interface{})[7].(float64)),
 						}
 
-						//Just one insert here, one array.
-						switch threadCycle {
-						case 0:
-							threadOne = append(threadOne, OHCLInstance)
-							threadCycle += 1
-						case 1:
-							threadTwo = append(threadTwo, OHCLInstance)
-							threadCycle += 1
-						case 2:
-							threadThree = append(threadThree, OHCLInstance)
-							threadCycle += 1
-						case 3:
-							threadFour = append(threadFour, OHCLInstance)
-							threadCycle = 0
-						}
-
-						arrEpochsAndID = append(arrEpochsAndID, map[string]interface{}{"PairID": OHCLInstance.PairID, "Epoch": OHCLInstance.EpochTime})
+						arrOHCLObject = append(arrOHCLObject, OHCLInstance)
 					}
 				}
 			}
@@ -98,83 +68,18 @@ func watchOHLC() {
 		}
 	}
 
-	jsonData, errJSON := json.Marshal(arrEpochsAndID)
-	if errJSON != nil {
-		panic(errJSON)
-	}
-
-	//This might not even be necessary... If the insert does the filtering in SQL like in the other example then this can be cut down. No threading required.
-	//WHERE on the OPENJSON NOT EXISTS
-	sqlGetEpochs := "EXEC [KrakenDB].[dbo].[getPairEpochs] @jsonEpochsAndID = '" + string(jsonData) + "'"
-	rowEpoch, errEpoch := deb.Query(sqlGetEpochs)
-	if errEpoch != nil {
-		panic(errEpoch)
-	}
-
-	var arrFoundEpoch []detectedEpoch = []detectedEpoch{}
-
-	for rowEpoch.Next() {
-		var objFoundEpoch detectedEpoch
-
-		scanErr := rowEpoch.Scan(&objFoundEpoch.PairID, &objFoundEpoch.Epoch)
-
-		if scanErr != nil {
-			panic(scanErr)
-		}
-
-		arrFoundEpoch = append(arrFoundEpoch, objFoundEpoch)
-	}
-
-	//This was cool at the time, but no need with new SQL insert techniques.
-	for w := 0; w <= 3; w++ {
-		switch w {
-		case 0:
-			go processOHLCThread(0, arrFoundEpoch, threadOne)
-		case 1:
-			go processOHLCThread(1, arrFoundEpoch, threadTwo)
-		case 2:
-			go processOHLCThread(2, arrFoundEpoch, threadThree)
-		case 3:
-			go processOHLCThread(3, arrFoundEpoch, threadFour)
-		}
-	}
-
-	fmt.Println("Threads started - Completed CRON job")
-}
-
-//This function can probably be cut down into the main function
-func processOHLCThread(threadCount int, arrEpochFound []detectedEpoch, arrThreadOHLCData []OHCLObject) {
-	var threadInsert []OHCLObject = []OHCLObject{}
-
-	for _, objOHCLInstance := range arrThreadOHLCData {
-		var alreadyExists bool = false
-
-		for _, objFoundEpoch := range arrEpochFound {
-			if objFoundEpoch.Epoch == objOHCLInstance.EpochTime && objFoundEpoch.PairID == objOHCLInstance.PairID {
-				alreadyExists = true
-				break
-			}
-		}
-
-		if !alreadyExists {
-			threadInsert = append(threadInsert, objOHCLInstance)
-		}
-
-	}
-
-	fmt.Println("Thread: " + strconv.Itoa(threadCount) + " Inserting count: " + strconv.Itoa(len(threadInsert)))
-
-	b, err := json.Marshal(threadInsert)
+	jsonData, err := json.Marshal(arrOHCLObject)
 	if err != nil {
 		fmt.Printf("Error: %s", err)
 		return
 	}
 
-	sqlInsertOHLC := "EXEC [KrakenDB].[dbo].[insertOHLC] @JSONData = '" + string(b) + "'"
-
+	sqlInsertOHLC := "EXEC [KrakenDB].[dbo].[insertOHLC] @JSONData = '" + string(jsonData) + "'"
 	_, errInsertOHLC := deb.Exec(sqlInsertOHLC)
 
 	if errInsertOHLC != nil {
 		panic(errInsertOHLC)
 	}
+
+	fmt.Println("Inserts Completed - Completed CRON job")
 }

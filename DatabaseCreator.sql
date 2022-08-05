@@ -112,12 +112,22 @@ CREATE PROCEDURE insertOHLC
 	@JSONData VARCHAR(MAX)
 AS
 BEGIN
-	/*Actually add the insert, whoops.*/
-	SELECT GETDATE() AS RetreivedDate, *
+	INSERT INTO dbo.PairAssetOHLC
+	SELECT GETDATE(), *
 	FROM OPENJSON(@JSONData)
-	WITH (PairID int, epochTime int, priceOpen decimal(38, 14), priceHigh decimal(38, 14), priceLow decimal(38, 14), priceClose decimal(38, 14), VWAP decimal(38, 14), Volume decimal(38, 14), OHLCCount int) as insertValues
+	WITH (PairID int, epochTime int, priceOpen decimal(38, 14), priceHigh decimal(38, 14), priceLow decimal(38, 14), priceClose decimal(38, 14), VWAP decimal(38, 14), volume decimal(38, 14), [count] int) as insertValues
+	WHERE NOT EXISTS (SELECT PairID, epoch, priceOpen, priceHigh, priceLow, priceClose, dbo.PairAssetOHLC.priceVolumeWeightedAverage, dbo.PairAssetOHLC.OHLCVolume, dbo.PairAssetOHLC.OHLCCount 
+		FROM dbo.PairAssetOHLC
+		WHERE PairID = insertValues.PairID
+		AND epoch = insertValues.epochTime
+		AND priceOpen = insertValues.priceOpen
+		AND priceHigh = insertValues.priceHigh
+		AND priceLow = insertValues.priceLow
+		AND priceClose = insertValues.priceClose
+		AND dbo.PairAssetOHLC.priceVolumeWeightedAverage = insertValues.VWAP
+		AND dbo.PairAssetOHLC.OHLCVolume = insertValues.volume
+		AND dbo.PairAssetOHLC.OHLCCount = insertValues.[count])
 END
-GO
 
 CREATE PROCEDURE insertFiatConversion
 	 @convEpoch int, 
