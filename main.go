@@ -7,7 +7,6 @@ import (
 	"time"
 
 	_ "github.com/denisenkom/go-mssqldb"
-	"github.com/robfig/cron/v3"
 )
 
 var deb *sql.DB
@@ -22,7 +21,7 @@ func connectToDB() {
 
 	u := &url.URL{
 		Scheme:   "sqlserver",
-		User:     url.UserPassword("sa" /*REMOVED*/),
+		User:     url.UserPassword("sa", "REMOVED"),
 		Host:     "192.168.0.12:1433",
 		RawQuery: query.Encode(),
 	}
@@ -38,7 +37,7 @@ func connectToDB() {
 
 	GetAssetInfo()
 	GetAssetPairData()
-	watchTrades()
+	/*watchTrades()
 	GetFiatExchange()
 	watchTicker()
 	watchOHLC()
@@ -72,7 +71,7 @@ func connectToDB() {
 	cronOHCL.Start()
 	cronTicker.Start()
 	cronConversion.Start()
-	cronTrades.Start()
+	cronTrades.Start()*/
 
 	fmt.Println("CRONs armed and ready")
 	time.Sleep(time.Duration(1<<63 - 1))

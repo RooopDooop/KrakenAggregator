@@ -27,6 +27,7 @@ type detectedEpoch struct {
 }
 
 func watchOHLC() {
+	//Set only one object array here, populate it and then push the entire array to MSSQL, the SQL server will handle doing the filtering of what should and shouldn't be entered
 	var threadOne []OHCLObject = []OHCLObject{}
 	var threadTwo []OHCLObject = []OHCLObject{}
 	var threadThree []OHCLObject = []OHCLObject{}
@@ -72,6 +73,7 @@ func watchOHLC() {
 							Count:      int(OHLCData.([]interface{})[7].(float64)),
 						}
 
+						//Just one insert here, one array.
 						switch threadCycle {
 						case 0:
 							threadOne = append(threadOne, OHCLInstance)
@@ -100,8 +102,10 @@ func watchOHLC() {
 	if errJSON != nil {
 		panic(errJSON)
 	}
-	sqlGetEpochs := "EXEC [KrakenDB].[dbo].[getPairEpochs] @jsonEpochsAndID = '" + string(jsonData) + "'"
 
+	//This might not even be necessary... If the insert does the filtering in SQL like in the other example then this can be cut down. No threading required.
+	//WHERE on the OPENJSON NOT EXISTS
+	sqlGetEpochs := "EXEC [KrakenDB].[dbo].[getPairEpochs] @jsonEpochsAndID = '" + string(jsonData) + "'"
 	rowEpoch, errEpoch := deb.Query(sqlGetEpochs)
 	if errEpoch != nil {
 		panic(errEpoch)
@@ -121,6 +125,7 @@ func watchOHLC() {
 		arrFoundEpoch = append(arrFoundEpoch, objFoundEpoch)
 	}
 
+	//This was cool at the time, but no need with new SQL insert techniques.
 	for w := 0; w <= 3; w++ {
 		switch w {
 		case 0:
@@ -137,6 +142,7 @@ func watchOHLC() {
 	fmt.Println("Threads started - Completed CRON job")
 }
 
+//This function can probably be cut down into the main function
 func processOHLCThread(threadCount int, arrEpochFound []detectedEpoch, arrThreadOHLCData []OHCLObject) {
 	var threadInsert []OHCLObject = []OHCLObject{}
 

@@ -1,5 +1,6 @@
 USE [KrakenDB]
 
+/*-------------------------------------------------Tables-------------------------------------------------*/
 CREATE TABLE Assets (
 	AssetID int IDENTITY(1,1) PRIMARY KEY,
 	Class varchar(50) NOT NULL,
@@ -104,3 +105,16 @@ CREATE TABLE AssetTrades (
 	MarketOrLimit varchar(16) NOT NULL,
 	FOREIGN KEY (PairID) REFERENCES AssetPairs(PairID)
 )
+/*-------------------------------------------------Tables-------------------------------------------------*/
+
+/*-------------------------------------------------Stored proceedures-------------------------------------------------*/
+CREATE PROCEDURE insertOHLC
+	@JSONData VARCHAR(MAX)
+AS
+BEGIN
+	SELECT GETDATE() AS RetreivedDate, *
+	FROM OPENJSON(@JSONData)
+	WITH (PairID int, epochTime int, priceOpen decimal(38, 14), priceHigh decimal(38, 14), priceLow decimal(38, 14), priceClose decimal(38, 14), VWAP decimal(38, 14), Volume decimal(38, 14), OHLCCount int) as insertValues
+END
+GO
+/*-------------------------------------------------Stored proceedures-------------------------------------------------*/

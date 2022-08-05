@@ -56,8 +56,6 @@ func GetAssetInfo() {
 			if errAffected != nil {
 				panic(errAffected)
 			}
-
-			//fmt.Println(strconv.Itoa(*AssetID) + " exists - " + strconv.FormatInt(affectedRows, 2) + " rows updated")
 		} else {
 			_, errInsert := deb.Exec("USE [KrakenDB] INSERT INTO Assets(Class, AlternativeName, Decimals, DisplayDecimals, CollateralValue, FiatAsset) VALUES('" + aClass + "', '" + altName + "', " + decimal + ", " + displayDecimal + ", " + determineCollateral(objResult.(map[string]interface{})) + ", " + determineFiat(altName) + ");")
 

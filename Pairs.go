@@ -90,7 +90,6 @@ func GetAssetPairData() {
 					orderLeverageBuy := objResult.(map[string]interface{})["leverage_buy"].([]interface{})
 					orderLeverageSell := objResult.(map[string]interface{})["leverage_sell"].([]interface{})
 
-					//fmt.Println(pName + " updated - Processing fees and leverage now...")
 					processFees(orderFees, false, pName)
 					processFees(orderFeesMaker, true, pName)
 					processLeverages(orderLeverageBuy, "buy", *pairID)
@@ -135,8 +134,6 @@ func GetAssetPairData() {
 			} else {
 				panic(wsName + " - NOT FOUND")
 			}
-
-			//fmt.Println(pName + " Processed")
 			wg.Done()
 		}(objProtoResult)
 	}
