@@ -6,10 +6,11 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"strconv"
+
+	"github.com/go-redis/redis"
 )
 
-func GetAssetInfo() {
+func GetAssetInfo(client *redis.Client) {
 	resp, err := http.Get("https://api.kraken.com/0/public/Assets")
 	if err != nil {
 		log.Fatalln(err)
@@ -34,36 +35,14 @@ func GetAssetInfo() {
 		var decimal string = fmt.Sprintf("%v", objResult.(map[string]interface{})["decimals"].(float64))
 		var displayDecimal string = fmt.Sprintf("%v", objResult.(map[string]interface{})["display_decimals"].(float64))
 
-		boolAlreadyExists, AssetID := determineIfAssetExists(altName)
-
-		if boolAlreadyExists {
-			sqlUpdateExisting := "UPDATE [KrakenDB].[dbo].[Assets] " +
-				"SET Class = '" + aClass + "', " +
-				"   Decimals = " + decimal + ", " +
-				"	DisplayDecimals = " + displayDecimal + ", " +
-				"	CollateralValue = " + determineCollateral(objResult.(map[string]interface{})) + ", " +
-				"	FiatAsset = " + determineFiat(altName) + " " +
-				"WHERE AssetID = " + strconv.Itoa(*AssetID) + ""
-
-			returnVal, errUpdate := deb.Exec(sqlUpdateExisting)
-
-			if errUpdate != nil {
-				panic(errUpdate)
-			}
-
-			_, errAffected := returnVal.RowsAffected()
-
-			if errAffected != nil {
-				panic(errAffected)
-			}
-		} else {
-			_, errInsert := deb.Exec("USE [KrakenDB] INSERT INTO Assets(Class, AlternativeName, Decimals, DisplayDecimals, CollateralValue, FiatAsset) VALUES('" + aClass + "', '" + altName + "', " + decimal + ", " + displayDecimal + ", " + determineCollateral(objResult.(map[string]interface{})) + ", " + determineFiat(altName) + ");")
-
-			if errInsert != nil {
-				panic(errInsert)
-			}
-
-			fmt.Println(altName + " created")
+		if _, err := client.Pipelined(func(rdb redis.Pipeliner) error {
+			rdb.HSet(altName, "Class", aClass)
+			rdb.HSet(altName, "Decimal", decimal)
+			rdb.HSet(altName, "DisplayDecimals", displayDecimal)
+			rdb.HSet(altName, "CollateralValue", determineCollateral(objResult.(map[string]interface{})))
+			return nil
+		}); err != nil {
+			panic(err)
 		}
 	}
 

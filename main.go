@@ -3,10 +3,9 @@ package main
 import (
 	"database/sql"
 	"fmt"
-	"net/url"
 	"time"
 
-	_ "github.com/denisenkom/go-mssqldb"
+	"github.com/go-redis/redis"
 )
 
 var deb *sql.DB
@@ -16,31 +15,20 @@ func main() {
 }
 
 func connectToDB() {
-	query := url.Values{}
-	query.Add("kraken", "KrakenScraper")
+	client := redis.NewClient(&redis.Options{
+		Addr:     "localhost:6379",
+		Password: "",
+		DB:       0,
+	})
 
-	u := &url.URL{
-		Scheme:   "sqlserver",
-		User:     url.UserPassword("sa", "REMOVED"),
-		Host:     "192.168.0.12:1433",
-		RawQuery: query.Encode(),
-	}
+	fmt.Println("Connected to redis DB!")
 
-	db, err := sql.Open("sqlserver", u.String())
-
-	if err != nil {
-		panic(err)
-	}
-
-	deb = db
-	fmt.Println("Connected!")
-
-	GetAssetInfo()
-	GetAssetPairData()
+	GetAssetInfo(client)
+	/*GetAssetPairData()
 	GetFiatExchange()
 	watchTicker()
 	watchOHLC()
-	/*watchTrades()
+	watchTrades()
 
 	fmt.Println("Arming CRON jobs...")
 

@@ -21,7 +21,7 @@ func determineCollateral(collateralValue map[string]interface{}) string {
 		return collateralValue
 	}
 
-	return "NULL"
+	return "N/A"
 }
 
 func determineIfPairExists(strAlternativePairName string) (bool, *int) {
