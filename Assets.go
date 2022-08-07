@@ -36,6 +36,7 @@ func GetAssetInfo(client *redis.Client) {
 		var displayDecimal string = fmt.Sprintf("%v", objResult.(map[string]interface{})["display_decimals"].(float64))
 
 		if _, err := client.Pipelined(func(rdb redis.Pipeliner) error {
+			rdb.HSet(altName, "HashType", "Asset")
 			rdb.HSet(altName, "Class", aClass)
 			rdb.HSet(altName, "Decimal", decimal)
 			rdb.HSet(altName, "DisplayDecimals", displayDecimal)

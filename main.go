@@ -24,8 +24,8 @@ func connectToDB() {
 	fmt.Println("Connected to redis DB!")
 
 	GetAssetInfo(client)
-	/*GetAssetPairData()
-	GetFiatExchange()
+	GetAssetPairData(client)
+	/*GetFiatExchange()
 	watchTicker()
 	watchOHLC()
 	watchTrades()

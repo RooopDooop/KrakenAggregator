@@ -15,6 +15,8 @@ type FiatData struct {
 }
 
 func GetFiatExchange() {
+	//TODO will need to rethink this one... Need to pull all the fiats from REDIS, then is they aren't HOLD. Pass them
+	//Learn how to make a list, probably by epoch?
 	var objStrFiat []FiatData = []FiatData{}
 
 	sqlFiatAssets := "SELECT AssetID, AlternativeName FROM KrakenDB.dbo.Assets WHERE FiatAsset = 1 AND CollateralValue IS NOT NULL AND AlternativeName != 'USD'"

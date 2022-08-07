@@ -6,12 +6,13 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"strconv"
 	"strings"
 	"sync"
+
+	"github.com/go-redis/redis"
 )
 
-func GetAssetPairData() {
+func GetAssetPairData(client *redis.Client) {
 	resp, err := http.Get("https://api.kraken.com/0/public/AssetPairs")
 	if err != nil {
 		log.Fatalln(err)
@@ -51,88 +52,25 @@ func GetAssetPairData() {
 
 			var orderMin string = objResult.(map[string]interface{})["ordermin"].(string)
 
-			baseExists, idBase := determineIfAssetExists(strings.Split(wsName, "/")[0])
-			quoteExists, idQuote := determineIfAssetExists(strings.Split(wsName, "/")[1])
-
-			if baseExists && quoteExists {
-				pairExists, pairID := determineIfPairExists(pName)
-
-				feeAssetExists, feeAssetID := determineIfAssetExists(feeCurrency[1:])
-
-				if !feeAssetExists {
-					panic("Fee Asset does not exist")
-				}
-
-				if pairExists {
-					sqlUpdatePair := "UPDATE [KrakenDB].[dbo].[AssetPairs] " +
-						"SET PairDecimals = " + fmt.Sprintf("%v", pDecimal) +
-						", LotDecimals = " + fmt.Sprintf("%v", lDecimal) +
-						", LotMultiplier = " + fmt.Sprintf("%v", lMultiplier) +
-						", FeeCurrency = " + strconv.Itoa(*feeAssetID) +
-						", MarginCall = " + fmt.Sprintf("%v", marginCall) +
-						", MarginStop = " + fmt.Sprintf("%v", marginStop) +
-						", OrderMinimum = " + orderMin +
-						" WHERE PairID = " + strconv.Itoa(*pairID)
-
-					_, errUpdate := deb.Exec(sqlUpdatePair)
-					if errUpdate != nil {
-						panic(errUpdate)
-					}
-
-					errPair, pairID := determineIfPairExists(pName)
-
-					if !errPair {
-						panic("Error, pair: " + pName + " - Not found")
-					}
-
-					orderFees := objResult.(map[string]interface{})["fees"].([]interface{})
-					orderFeesMaker := objResult.(map[string]interface{})["fees_maker"].([]interface{})
-					orderLeverageBuy := objResult.(map[string]interface{})["leverage_buy"].([]interface{})
-					orderLeverageSell := objResult.(map[string]interface{})["leverage_sell"].([]interface{})
-
-					processFees(orderFees, false, pName)
-					processFees(orderFeesMaker, true, pName)
-					processLeverages(orderLeverageBuy, "buy", *pairID)
-					processLeverages(orderLeverageSell, "sell", *pairID)
-
-				} else {
-					sqlInsertPair := "INSERT INTO [KrakenDB].[dbo].[AssetPairs] (AlternativePairName, WebsocketPairName, BaseID, QuoteID, PairDecimals, LotDecimals, LotMultiplier, FeeCurrency, MarginCall, MarginStop, OrderMinimum) " +
-						"VALUES ('" + pName + "',  " +
-						"'" + wsName + "', " +
-						strconv.Itoa(*idBase) + ", " +
-						strconv.Itoa(*idQuote) + ", " +
-						fmt.Sprintf("%v", pDecimal) + ", " +
-						fmt.Sprintf("%v", lDecimal) + ", " +
-						fmt.Sprintf("%v", lMultiplier) + ", " +
-						strconv.Itoa(*feeAssetID) + ", " +
-						fmt.Sprintf("%v", marginCall) + ", " +
-						fmt.Sprintf("%v", marginStop) + ", " +
-						orderMin + ");"
-
-					_, errInsert := deb.Exec(sqlInsertPair)
-					if errInsert != nil {
-						panic(errInsert)
-					}
-
-					errPair, pairID := determineIfPairExists(pName)
-
-					if !errPair {
-						panic("Error, pair: " + pName + " - Not found")
-					}
-
-					orderFees := objResult.(map[string]interface{})["fees"].([]interface{})
-					orderFeesMaker := objResult.(map[string]interface{})["fees_maker"].([]interface{})
-					orderLeverageBuy := objResult.(map[string]interface{})["leverage_buy"].([]interface{})
-					orderLeverageSell := objResult.(map[string]interface{})["leverage_sell"].([]interface{})
-
-					fmt.Println(pName + " created - Processing fees and leverage now...")
-					processFees(orderFees, false, pName)
-					processFees(orderFeesMaker, true, pName)
-					processLeverages(orderLeverageBuy, "buy", *pairID)
-					processLeverages(orderLeverageSell, "sell", *pairID)
-				}
-			} else {
-				panic(wsName + " - NOT FOUND")
+			if _, err := client.Pipelined(func(rdb redis.Pipeliner) error {
+				rdb.HSet(pName, "HashType", "AssetPairs")
+				rdb.HSet(pName, "Base", strings.Split(wsName, "/")[0])
+				rdb.HSet(pName, "Quote", strings.Split(wsName, "/")[1])
+				rdb.HSet(pName, "WebsocketName", wsName)
+				rdb.HSet(pName, "PairDecimals", pDecimal)
+				rdb.HSet(pName, "LotDecimals", lDecimal)
+				rdb.HSet(pName, "LotMultiplier", lMultiplier)
+				rdb.HSet(pName, "FeeCurrency", feeCurrency)
+				rdb.HSet(pName, "MarginCall", marginCall)
+				rdb.HSet(pName, "MarginStop", marginStop)
+				rdb.HSet(pName, "OrderMinimum", orderMin)
+				rdb.HSet(pName, "LeverageBuy", fmt.Sprintf("%v", objResult.(map[string]interface{})["leverage_buy"].([]interface{})))
+				rdb.HSet(pName, "LeverageSell", fmt.Sprintf("%v", objResult.(map[string]interface{})["leverage_sell"].([]interface{})))
+				rdb.HSet(pName, "Fees", fmt.Sprintf("%v", objResult.(map[string]interface{})["fees"].([]interface{})))
+				rdb.HSet(pName, "FeesMaker", fmt.Sprintf("%v", objResult.(map[string]interface{})["fees_maker"].([]interface{})))
+				return nil
+			}); err != nil {
+				panic(err)
 			}
 			wg.Done()
 		}(objProtoResult)
