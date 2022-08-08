@@ -7,6 +7,10 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
+	"time"
+
+	"github.com/go-redis/redis"
 )
 
 type pairData struct {
@@ -14,84 +18,94 @@ type pairData struct {
 	AlternativeName string
 }
 
-func watchTicker() {
-	for _, objPairData := range getPairs() {
-		resp, err := http.Get("https://api.kraken.com/0/public/Ticker?pair=" + objPairData.AlternativeName)
-		if err != nil {
-			log.Fatalln(err)
-		}
+func watchTicker(client *redis.Client) {
+	if _, err := client.Pipelined(func(rdb redis.Pipeliner) error {
+		for _, strAssetPair := range fetchAssetsPairs(client) {
+			var formattedPair string = strings.Split(strAssetPair, ":")[1]
 
-		defer resp.Body.Close()
+			fmt.Println("Processing Ticker: " + formattedPair)
 
-		bodyBytes, bodyErr := ioutil.ReadAll(resp.Body)
-		if bodyErr != nil {
-			log.Fatalln(bodyErr)
-		}
+			resp, err := http.Get("https://api.kraken.com/0/public/Ticker?pair=" + formattedPair)
+			if err != nil {
+				log.Fatalln(err)
+			}
 
-		var response map[string]interface{}
+			defer resp.Body.Close()
 
-		if errResponse := json.Unmarshal(bodyBytes, &response); errResponse != nil {
-			log.Fatal(errResponse)
-		}
+			bodyBytes, bodyErr := ioutil.ReadAll(resp.Body)
+			if bodyErr != nil {
+				log.Fatalln(bodyErr)
+			}
 
-		for _, objResult := range response["result"].(map[string]interface{}) {
-			var aPrice string = objResult.(map[string]interface{})["a"].([]interface{})[0].(string)
-			var aWholeLotVolume string = objResult.(map[string]interface{})["a"].([]interface{})[1].(string)
-			var aLotVolume string = objResult.(map[string]interface{})["a"].([]interface{})[2].(string)
+			var response map[string]interface{}
 
-			var bPrice string = objResult.(map[string]interface{})["b"].([]interface{})[0].(string)
-			var bWholeLotVolume string = objResult.(map[string]interface{})["b"].([]interface{})[1].(string)
-			var bLotVolume string = objResult.(map[string]interface{})["b"].([]interface{})[2].(string)
+			if errResponse := json.Unmarshal(bodyBytes, &response); errResponse != nil {
+				log.Fatal(errResponse)
+			}
 
-			var lastTradePrice string = objResult.(map[string]interface{})["c"].([]interface{})[0].(string)
-			var lastTwentyFourLotVolume string = objResult.(map[string]interface{})["c"].([]interface{})[0].(string)
+			for _, objResult := range response["result"].(map[string]interface{}) {
+				var aPrice string = objResult.(map[string]interface{})["a"].([]interface{})[0].(string)
+				var aWholeLotVolume string = objResult.(map[string]interface{})["a"].([]interface{})[1].(string)
+				var aLotVolume string = objResult.(map[string]interface{})["a"].([]interface{})[2].(string)
 
-			var todayTradeVolume string = objResult.(map[string]interface{})["v"].([]interface{})[0].(string)
-			var lasttwentyFourTradeVolume string = objResult.(map[string]interface{})["v"].([]interface{})[1].(string)
+				var bPrice string = objResult.(map[string]interface{})["b"].([]interface{})[0].(string)
+				var bWholeLotVolume string = objResult.(map[string]interface{})["b"].([]interface{})[1].(string)
+				var bLotVolume string = objResult.(map[string]interface{})["b"].([]interface{})[2].(string)
 
-			var todayWeightedAvgPrice string = objResult.(map[string]interface{})["p"].([]interface{})[0].(string)
-			var lasttwentyFourWeightedAvgPrice string = objResult.(map[string]interface{})["p"].([]interface{})[1].(string)
+				var lastTradePrice string = objResult.(map[string]interface{})["c"].([]interface{})[0].(string)
+				var lastTwentyFourLotVolume string = objResult.(map[string]interface{})["c"].([]interface{})[0].(string)
 
-			var todayTradeQuantity string = fmt.Sprintf("%v", objResult.(map[string]interface{})["t"].([]interface{})[0].(float64))
-			var lastTwentyFourTradeQuantity string = fmt.Sprintf("%v", objResult.(map[string]interface{})["t"].([]interface{})[1].(float64))
+				var todayTradeVolume string = objResult.(map[string]interface{})["v"].([]interface{})[0].(string)
+				var lasttwentyFourTradeVolume string = objResult.(map[string]interface{})["v"].([]interface{})[1].(string)
 
-			var todayLow string = objResult.(map[string]interface{})["l"].([]interface{})[0].(string)
-			var lasttwentyFourLow string = objResult.(map[string]interface{})["l"].([]interface{})[1].(string)
+				var todayWeightedAvgPrice string = objResult.(map[string]interface{})["p"].([]interface{})[0].(string)
+				var lasttwentyFourWeightedAvgPrice string = objResult.(map[string]interface{})["p"].([]interface{})[1].(string)
 
-			var todayHigh string = objResult.(map[string]interface{})["h"].([]interface{})[0].(string)
-			var lasttwentyFourHigh string = objResult.(map[string]interface{})["h"].([]interface{})[1].(string)
+				var todayTradeQuantity string = fmt.Sprintf("%v", objResult.(map[string]interface{})["t"].([]interface{})[0].(float64))
+				var lastTwentyFourTradeQuantity string = fmt.Sprintf("%v", objResult.(map[string]interface{})["t"].([]interface{})[1].(float64))
 
-			var todayOpeningPrice string = objResult.(map[string]interface{})["o"].(string)
+				var todayLow string = objResult.(map[string]interface{})["l"].([]interface{})[0].(string)
+				var lasttwentyFourLow string = objResult.(map[string]interface{})["l"].([]interface{})[1].(string)
 
-			sqlInsert := "INSERT INTO [KrakenDB].[dbo].[PairAssetTicker] (TickerDate, PairID, AskingPrice, AskingWholeLotVolume, AskingLotVolume, BidPrice, BidWholeLotVolume, BidLotVolume, LastTradePrice, LastTradeVolume, VolumeToday, VolumeLastTwentyFour, VolumeWeightedToday, VolumeWeightedLastTwentyFour, TradeQuantity, TradeQuantityLastTwentyFour, LowToday, LowLastTwentyFour, HighToday, HighLastTwentyFour, OpeningPrice) " +
-				"VALUES (GETDATE(), " + strconv.Itoa(objPairData.PairID) + ", " +
-				aPrice +
-				", " + aWholeLotVolume +
-				", " + aLotVolume +
-				", " + bPrice +
-				", " + bWholeLotVolume +
-				", " + bLotVolume +
-				", " + lastTradePrice +
-				", " + lastTwentyFourLotVolume +
-				", " + todayTradeVolume +
-				", " + lasttwentyFourTradeVolume +
-				", " + todayWeightedAvgPrice +
-				", " + lasttwentyFourWeightedAvgPrice +
-				", " + todayTradeQuantity +
-				", " + lastTwentyFourTradeQuantity +
-				", " + todayLow +
-				", " + lasttwentyFourLow +
-				", " + todayHigh +
-				", " + lasttwentyFourHigh +
-				", " + todayOpeningPrice + ")"
+				var todayHigh string = objResult.(map[string]interface{})["h"].([]interface{})[0].(string)
+				var lasttwentyFourHigh string = objResult.(map[string]interface{})["h"].([]interface{})[1].(string)
 
-			_, errInsert := deb.Exec(sqlInsert)
+				var todayOpeningPrice string = objResult.(map[string]interface{})["o"].(string)
 
-			if errInsert != nil {
-				panic(errInsert)
+				rdb.HSet("Ticker:"+formattedPair+"#"+strconv.Itoa(int(time.Now().Unix())), "AskingPrice", aPrice)
+				rdb.HSet("Ticker:"+formattedPair+"#"+strconv.Itoa(int(time.Now().Unix())), "AskingWholeLotVolume", aWholeLotVolume)
+				rdb.HSet("Ticker:"+formattedPair+"#"+strconv.Itoa(int(time.Now().Unix())), "AskingLotVolume", aLotVolume)
+
+				rdb.HSet("Ticker:"+formattedPair+"#"+strconv.Itoa(int(time.Now().Unix())), "BidPrice", bPrice)
+				rdb.HSet("Ticker:"+formattedPair+"#"+strconv.Itoa(int(time.Now().Unix())), "BidWholeLotVolume", bWholeLotVolume)
+				rdb.HSet("Ticker:"+formattedPair+"#"+strconv.Itoa(int(time.Now().Unix())), "BidLotVolume", bLotVolume)
+
+				rdb.HSet("Ticker:"+formattedPair+"#"+strconv.Itoa(int(time.Now().Unix())), "LatestTradePrice", lastTradePrice)
+				rdb.HSet("Ticker:"+formattedPair+"#"+strconv.Itoa(int(time.Now().Unix())), "TwentyFourLotVolume", lastTwentyFourLotVolume)
+
+				rdb.HSet("Ticker:"+formattedPair+"#"+strconv.Itoa(int(time.Now().Unix())), "TodayTradeVolume", todayTradeVolume)
+				rdb.HSet("Ticker:"+formattedPair+"#"+strconv.Itoa(int(time.Now().Unix())), "TwentyFourTradeVolume", lasttwentyFourTradeVolume)
+
+				rdb.HSet("Ticker:"+formattedPair+"#"+strconv.Itoa(int(time.Now().Unix())), "TodayWeightedAvgPrice", todayWeightedAvgPrice)
+				rdb.HSet("Ticker:"+formattedPair+"#"+strconv.Itoa(int(time.Now().Unix())), "TwentyFourWeightedAvgPrice", lasttwentyFourWeightedAvgPrice)
+
+				rdb.HSet("Ticker:"+formattedPair+"#"+strconv.Itoa(int(time.Now().Unix())), "TodayTradeQuantity", todayTradeQuantity)
+				rdb.HSet("Ticker:"+formattedPair+"#"+strconv.Itoa(int(time.Now().Unix())), "TwentyFourTradeQuantity", lastTwentyFourTradeQuantity)
+
+				rdb.HSet("Ticker:"+formattedPair+"#"+strconv.Itoa(int(time.Now().Unix())), "TodayLow", todayLow)
+				rdb.HSet("Ticker:"+formattedPair+"#"+strconv.Itoa(int(time.Now().Unix())), "TwentyFourLow", lasttwentyFourLow)
+
+				rdb.HSet("Ticker:"+formattedPair+"#"+strconv.Itoa(int(time.Now().Unix())), "TodayHigh", todayHigh)
+				rdb.HSet("Ticker:"+formattedPair+"#"+strconv.Itoa(int(time.Now().Unix())), "TwentyFourHigh", lasttwentyFourHigh)
+
+				rdb.HSet("Ticker:"+formattedPair+"#"+strconv.Itoa(int(time.Now().Unix())), "OpeningPrice", todayOpeningPrice)
 			}
 		}
+		return nil
+	}); err != nil {
+		panic(err)
 	}
+
 }
 
 func getPairs() []pairData {

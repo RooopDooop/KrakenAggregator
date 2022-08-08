@@ -6,6 +6,10 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"strconv"
+	"strings"
+
+	"github.com/go-redis/redis"
 )
 
 type OHCLObject struct {
@@ -20,66 +24,48 @@ type OHCLObject struct {
 	Count      int    `json:"count"`
 }
 
-func watchOHLC() {
-	var arrOHCLObject []OHCLObject = []OHCLObject{}
+func watchOHLC(client *redis.Client) {
+	if _, err := client.Pipelined(func(rdb redis.Pipeliner) error {
+		for _, strPair := range fetchAssetsPairs(client) {
+			fmt.Println("Processing OHCL: " + strings.Split(strPair, ":")[1])
+			resp, err := http.Get("https://api.kraken.com/0/public/OHLC?pair=" + strings.Split(strPair, ":")[1] + "&interval=1")
+			if err != nil {
+				log.Fatalln(err)
+			}
 
-	for _, objPairData := range getPairs() {
-		fmt.Println("Pulling OHLC data for: " + objPairData.AlternativeName)
-		resp, err := http.Get("https://api.kraken.com/0/public/OHLC?pair=" + objPairData.AlternativeName + "&interval=1")
-		if err != nil {
-			log.Fatalln(err)
-		}
+			defer resp.Body.Close()
 
-		defer resp.Body.Close()
+			bodyBytes, bodyErr := ioutil.ReadAll(resp.Body)
+			if bodyErr != nil {
+				log.Fatalln(bodyErr)
+			}
 
-		bodyBytes, bodyErr := ioutil.ReadAll(resp.Body)
-		if bodyErr != nil {
-			log.Fatalln(bodyErr)
-		}
+			var response map[string]interface{}
 
-		var response map[string]interface{}
+			if errResponse := json.Unmarshal(bodyBytes, &response); errResponse != nil {
+				log.Fatal(errResponse)
+			}
 
-		if errResponse := json.Unmarshal(bodyBytes, &response); errResponse != nil {
-			log.Fatal(errResponse)
-		}
-
-		if response["result"] != nil {
-			for headerStr, objResult := range response["result"].(map[string]interface{}) {
-				if headerStr != "last" {
-					for _, OHLCData := range objResult.([]interface{}) {
-						var OHCLInstance OHCLObject = OHCLObject{
-							PairID:     objPairData.PairID,
-							EpochTime:  int(OHLCData.([]interface{})[0].(float64)),
-							PriceOpen:  OHLCData.([]interface{})[1].(string),
-							PriceHigh:  OHLCData.([]interface{})[2].(string),
-							PriceLow:   OHLCData.([]interface{})[3].(string),
-							PriceClose: OHLCData.([]interface{})[4].(string),
-							VWAP:       OHLCData.([]interface{})[5].(string),
-							Volume:     OHLCData.([]interface{})[6].(string),
-							Count:      int(OHLCData.([]interface{})[7].(float64)),
+			if response["result"] != nil {
+				for headerStr, objResult := range response["result"].(map[string]interface{}) {
+					if headerStr != "last" {
+						for _, OHLCData := range objResult.([]interface{}) {
+							rdb.HSet("OHCL:"+strings.Split(strPair, ":")[1]+"#"+strconv.Itoa(int(OHLCData.([]interface{})[0].(float64))), "PriceOpen", OHLCData.([]interface{})[1].(string))
+							rdb.HSet("OHCL:"+strings.Split(strPair, ":")[1]+"#"+strconv.Itoa(int(OHLCData.([]interface{})[0].(float64))), "PriceHigh", OHLCData.([]interface{})[2].(string))
+							rdb.HSet("OHCL:"+strings.Split(strPair, ":")[1]+"#"+strconv.Itoa(int(OHLCData.([]interface{})[0].(float64))), "PriceLow", OHLCData.([]interface{})[3].(string))
+							rdb.HSet("OHCL:"+strings.Split(strPair, ":")[1]+"#"+strconv.Itoa(int(OHLCData.([]interface{})[0].(float64))), "PriceClose", OHLCData.([]interface{})[4].(string))
+							rdb.HSet("OHCL:"+strings.Split(strPair, ":")[1]+"#"+strconv.Itoa(int(OHLCData.([]interface{})[0].(float64))), "PriceVolumeWeightedAverage", OHLCData.([]interface{})[5].(string))
+							rdb.HSet("OHCL:"+strings.Split(strPair, ":")[1]+"#"+strconv.Itoa(int(OHLCData.([]interface{})[0].(float64))), "Volume", OHLCData.([]interface{})[6].(string))
+							rdb.HSet("OHCL:"+strings.Split(strPair, ":")[1]+"#"+strconv.Itoa(int(OHLCData.([]interface{})[0].(float64))), "Count", OHLCData.([]interface{})[7].(float64))
 						}
-
-						arrOHCLObject = append(arrOHCLObject, OHCLInstance)
 					}
 				}
 			}
-		} else {
-			fmt.Println("INVALID OHLC, skipping: " + objPairData.AlternativeName)
 		}
+		return nil
+	}); err != nil {
+		panic(err)
 	}
 
-	jsonData, err := json.Marshal(arrOHCLObject)
-	if err != nil {
-		fmt.Printf("Error: %s", err)
-		return
-	}
-
-	sqlInsertOHLC := "EXEC [KrakenDB].[dbo].[insertOHLC] @JSONData = '" + string(jsonData) + "'"
-	_, errInsertOHLC := deb.Exec(sqlInsertOHLC)
-
-	if errInsertOHLC != nil {
-		panic(errInsertOHLC)
-	}
-
-	fmt.Println("Inserts Completed - Completed CRON job")
+	fmt.Println("OHLC Inserts Completed")
 }
