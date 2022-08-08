@@ -107,31 +107,3 @@ func watchTicker(client *redis.Client) {
 	}
 
 }
-
-func getPairs() []pairData {
-	var arrObjPairData []pairData = []pairData{}
-
-	sqlPairs := "SELECT PairID, AlternativePairName FROM [KrakenDB].[dbo].[AssetPairs] ORDER BY AlternativePairName, PairID"
-	rowPairs, errPairs := deb.Query(sqlPairs)
-
-	if errPairs != nil {
-		panic(errPairs)
-	}
-
-	for rowPairs.Next() {
-		var objPair pairData
-
-		scanErr := rowPairs.Scan(
-			&objPair.PairID,
-			&objPair.AlternativeName,
-		)
-
-		if scanErr != nil {
-			panic(scanErr)
-		}
-
-		arrObjPairData = append(arrObjPairData, objPair)
-	}
-
-	return arrObjPairData
-}
