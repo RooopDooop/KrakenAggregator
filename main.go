@@ -27,6 +27,7 @@ func connectToDB() {
 	watchTicker(client)
 	watchOHLC(client)
 	watchTrades(client)
+	watchOrderBook(client)
 
 	fmt.Println("Arming CRON jobs...")
 
@@ -54,10 +55,17 @@ func connectToDB() {
 		watchTrades(client)
 	})
 
+	cronOrders := cron.New()
+	cronOrders.AddFunc("@every 1m", func() {
+		fmt.Println("Executing Trade job at: " + time.Now().UTC().String())
+		watchOrderBook(client)
+	})
+
 	cronOHCL.Start()
 	cronTicker.Start()
 	cronConversion.Start()
 	cronTrades.Start()
+	cronOrders.Start()
 
 	fmt.Println("CRONs armed and ready")
 	time.Sleep(time.Duration(1<<63 - 1))

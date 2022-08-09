@@ -25,7 +25,7 @@ func watchTrades(client *redis.Client) {
 		for _, strAssetPair := range fetchAssetsPairs(client) {
 			var formattedPair string = strings.Split(strAssetPair, ":")[1]
 
-			fmt.Println("Processing trades: " + formattedPair)
+			fmt.Println("Processing Trades: " + formattedPair)
 
 			resp, err := http.Get("https://api.kraken.com/0/public/Trades?pair=" + formattedPair)
 			if err != nil {
