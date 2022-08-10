@@ -25,8 +25,8 @@ type OHCLObject struct {
 }
 
 func watchOHLC(client *redis.Client) {
-	if _, err := client.Pipelined(func(rdb redis.Pipeliner) error {
-		for _, strPair := range fetchAssetsPairs(client) {
+	for _, strPair := range fetchAssetsPairs(client) {
+		if _, err := client.Pipelined(func(rdb redis.Pipeliner) error {
 			fmt.Println("Processing OHCL: " + strings.Split(strPair, ":")[1])
 			resp, err := http.Get("https://api.kraken.com/0/public/OHLC?pair=" + strings.Split(strPair, ":")[1] + "&interval=1")
 			if err != nil {
@@ -61,11 +61,10 @@ func watchOHLC(client *redis.Client) {
 					}
 				}
 			}
+			return nil
+		}); err != nil {
+			panic(err)
 		}
-		return nil
-	}); err != nil {
-		panic(err)
 	}
-
 	fmt.Println("OHLC Inserts Completed")
 }
