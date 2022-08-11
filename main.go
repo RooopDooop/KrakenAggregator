@@ -14,7 +14,7 @@ func main() {
 
 func connectToDB() {
 	client := redis.NewClient(&redis.Options{
-		Addr:     "localhost:6379",
+		Addr:     "172.17.0.1:6379",
 		Password: "",
 		DB:       0,
 	})
