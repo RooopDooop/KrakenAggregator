@@ -61,6 +61,7 @@ func fetchFiatAssets(client *redis.Client) []string {
 func fetchAssetsPairs(client *redis.Client) []string {
 	var AssetPairs []string = []string{}
 
+	//TODO this is throwing IO timeout. Will need to be more specific with is
 	val, err := client.Do("KEYS", "*AssetPair:*").Result()
 	if err != nil {
 		if err == redis.Nil {
@@ -75,23 +76,3 @@ func fetchAssetsPairs(client *redis.Client) []string {
 
 	return AssetPairs
 }
-
-/*func containsInt(s []int, target int) bool {
-	for _, v := range s {
-		if v == target {
-			return true
-		}
-	}
-
-	return false
-}
-
-func containsString(s []string, target string) bool {
-	for _, v := range s {
-		if v == target {
-			return true
-		}
-	}
-
-	return false
-}*/

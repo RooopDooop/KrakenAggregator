@@ -13,10 +13,16 @@ func main() {
 }
 
 func connectToDB() {
+	//TODO fix this
+	//I don't like this, Timeouts exists for a reason
+	//Had to do this for now, had IO timeout errors as the database grows
+	//Will come back and fix it next commit
 	client := redis.NewClient(&redis.Options{
-		Addr:     "172.17.0.1:6379",
-		Password: "",
-		DB:       0,
+		Addr:         "localhost:6379",
+		Password:     "",
+		DB:           0,
+		ReadTimeout:  -1,
+		WriteTimeout: -1,
 	})
 
 	fmt.Println("Connected to redis DB!")
