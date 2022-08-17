@@ -1,3 +1,4 @@
+import com.google.gson.Gson;
 import org.java_websocket.WebSocket;
 import org.java_websocket.handshake.ClientHandshake;
 import org.java_websocket.server.WebSocketServer;
@@ -25,6 +26,23 @@ public class App extends WebSocketServer {
     @Override
     public void onMessage(WebSocket conn, String message) {
         System.out.println("received message from "	+ conn.getRemoteSocketAddress() + ": " + message);
+        wsMessage objMessage = new Gson().fromJson(message, wsMessage.class);
+
+        System.out.println(objMessage.returnAction());
+        System.out.println(objMessage.returnTimeSent());
+        System.out.println(objMessage.returnMessage());
+
+        switch (objMessage.returnAction()) {
+            case "RequestPairs": {
+                wsMessage objResponse = new wsMessage("AssigningPairs", "['USDBTX, 'CADJPY']");
+                conn.send(new Gson().toJson(objResponse));
+                break;
+            }
+            default: {
+                conn.send("messageParseFailure");
+                break;
+            }
+        }
     }
 
     @Override
@@ -42,10 +60,9 @@ public class App extends WebSocketServer {
         System.out.println("server started successfully");
     }
 
-
     public static void main(String[] args) {
         String host = "localhost";
-        int port = 8887;
+        int port = 8080;
 
         WebSocketServer server = new App(new InetSocketAddress(host, port));
         server.run();
