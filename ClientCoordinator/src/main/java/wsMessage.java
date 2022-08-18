@@ -1,18 +1,20 @@
+import java.time.Instant;
+
 public class wsMessage {
     private final String Action;
-    private final int TimeSent;
+    private final long TimeSent;
     private final String Message;
 
     public wsMessage(String Action, String Message) {
         this.Action = Action;
-        this.TimeSent = 69;
+        this.TimeSent = Instant.now().toEpochMilli();
         this.Message = Message;
     }
 
     public String returnAction() {
         return this.Action;
     }
-    public int returnTimeSent() {
+    public long returnTimeSent() {
         return this.TimeSent;
     }
     public String returnMessage() {

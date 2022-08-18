@@ -13,8 +13,12 @@ public class App extends WebSocketServer {
 
     @Override
     public void onOpen(WebSocket conn, ClientHandshake handshake) {
-        conn.send("Welcome to the server!"); //This method sends a message to the new client
-        broadcast( "new connection: " + handshake.getResourceDescriptor() ); //This method sends a message to all clients connected
+        wsMessage objResponse = new wsMessage("WelcomeMessage", "Successfully connected!");
+        conn.send(new Gson().toJson(objResponse));
+
+        wsMessage objBroadcast = new wsMessage("ClientConnected", handshake.getResourceDescriptor());
+        broadcast( new Gson().toJson(objBroadcast)); //This method sends a message to all clients connected
+
         System.out.println("new connection to " + conn.getRemoteSocketAddress());
     }
 
@@ -34,7 +38,7 @@ public class App extends WebSocketServer {
 
         switch (objMessage.returnAction()) {
             case "RequestPairs": {
-                wsMessage objResponse = new wsMessage("AssigningPairs", "['USDBTX, 'CADJPY']");
+                wsMessage objResponse = new wsMessage("AssigningPairs", "['USDBTX', 'CADJPY']");
                 conn.send(new Gson().toJson(objResponse));
                 break;
             }

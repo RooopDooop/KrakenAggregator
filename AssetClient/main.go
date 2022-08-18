@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -78,7 +79,21 @@ func receiveHandler() {
 			log.Println("Error in receive:", err)
 			return
 		}
-		log.Printf("Received: %s\n", msg)
+
+		log.Println(string(msg))
+
+		var wsMessage websocketCall
+		errWsMess := json.Unmarshal(msg, &wsMessage)
+		if errWsMess != nil {
+			panic(errWsMess)
+		}
+
+		fmt.Println(wsMessage)
+
+		switch wsMessage.Action {
+		case "AssigningPairs":
+			fmt.Println(wsMessage.Message)
+		}
 	}
 }
 
