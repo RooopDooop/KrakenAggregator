@@ -12,9 +12,10 @@ import (
 )
 
 type websocketCall struct {
-	Action   string `json:"Action"`
-	TimeSent int64  `json:"TimeSent"`
-	Message  string `json:"Message"`
+	MessageID int    `json:"MessageID"`
+	Action    string `json:"Action"`
+	TimeSent  int64  `json:"TimeSent"`
+	Message   string `json:"Message"`
 }
 
 var connSocket *websocket.Conn
@@ -34,7 +35,7 @@ func connectToServer() {
 
 	signal.Notify(interrupt, os.Interrupt) // Notify the interrupt channel for SIGINT
 
-	socketUrl := "ws://localhost:8080" + "/"
+	socketUrl := "ws://localhost:8081" + "/"
 	connSocket, _, errDial = websocket.DefaultDialer.Dial(socketUrl, nil)
 	if errDial != nil {
 		log.Fatal("Error connecting to Websocket Server:", errDial)
@@ -80,18 +81,21 @@ func receiveHandler() {
 			return
 		}
 
-		log.Println(string(msg))
-
 		var wsMessage websocketCall
 		errWsMess := json.Unmarshal(msg, &wsMessage)
 		if errWsMess != nil {
 			panic(errWsMess)
 		}
 
-		fmt.Println(wsMessage)
-
 		switch wsMessage.Action {
-		case "AssigningPairs":
+		case "BeginPair":
+			//TODO connect to DB here, save
+			fmt.Println(wsMessage.Message)
+
+			requestProxy(wsMessage)
+		case "StopPair":
+			fmt.Println(wsMessage.Message)
+		case "ReceiveProxy":
 			fmt.Println(wsMessage.Message)
 		}
 	}
@@ -102,6 +106,26 @@ func requestPairs() {
 		Action:   "RequestPairs",
 		TimeSent: time.Now().Unix(),
 		Message:  "",
+	}
+
+	strJson, errMarsh := json.Marshal(jsonMessage)
+	if errMarsh != nil {
+		panic(errMarsh)
+	}
+
+	err := connSocket.WriteMessage(websocket.TextMessage, []byte(strJson))
+	if err != nil {
+		log.Println("Error during writing to websocket:", err)
+		return
+	}
+}
+
+func requestProxy(objMessage websocketCall) {
+	var jsonMessage websocketCall = websocketCall{
+		MessageID: objMessage.MessageID,
+		Action:    "AssignProxy",
+		TimeSent:  time.Now().Unix(),
+		Message:   "",
 	}
 
 	strJson, errMarsh := json.Marshal(jsonMessage)
@@ -129,10 +153,11 @@ func requestPairs() {
 		WriteTimeout: -1,
 	})
 
+	//TODO REDIS if it was on docker
+	//172.1.1.20
+
 	fmt.Println("Connected to redis DB!")
 
-	GetAssetInfo(client)
-	GetAssetPairData(client)
 	GetFiatExchange(client)
 	watchTicker(client)
 	watchOHLC(client)

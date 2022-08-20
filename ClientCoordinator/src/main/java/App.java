@@ -2,11 +2,20 @@ import com.google.gson.Gson;
 import org.java_websocket.WebSocket;
 import org.java_websocket.handshake.ClientHandshake;
 import org.java_websocket.server.WebSocketServer;
+import redis.clients.jedis.Jedis;
 
-import java.net.InetSocketAddress;
+import java.net.*;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
+import java.time.Duration;
+import java.util.HashSet;
+import java.util.Set;
 
 public class App extends WebSocketServer {
+    listAssetPairs listPairs = new listAssetPairs();
+
     public App(InetSocketAddress address) {
         super(address);
     }
@@ -29,17 +38,33 @@ public class App extends WebSocketServer {
 
     @Override
     public void onMessage(WebSocket conn, String message) {
-        System.out.println("received message from "	+ conn.getRemoteSocketAddress() + ": " + message);
         wsMessage objMessage = new Gson().fromJson(message, wsMessage.class);
-
-        System.out.println(objMessage.returnAction());
-        System.out.println(objMessage.returnTimeSent());
-        System.out.println(objMessage.returnMessage());
 
         switch (objMessage.returnAction()) {
             case "RequestPairs": {
-                wsMessage objResponse = new wsMessage("AssigningPairs", "['USDBTX', 'CADJPY']");
+                wsMessage objResponse = new wsMessage("BeginPair", "['USDBTX', 'CADJPY']");
+
                 conn.send(new Gson().toJson(objResponse));
+                break;
+            }
+            case "PairsReceived": {
+                System.out.println("Client: " + conn.getRemoteSocketAddress() + " has successfully gotten its pairs, ID: " + objMessage.returnID());
+                break;
+            }
+            case "AssignProxy": {
+                try {
+                    HttpRequest request = HttpRequest.newBuilder().uri(URI.create("http://localhost:8080/randomProxy")).build();
+                    HttpClient clientHTTP = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(20)).build();
+                    HttpResponse<String> response = clientHTTP.send(request, HttpResponse.BodyHandlers.ofString());
+                    instanceProxy objProxy = new Gson().fromJson(response.body(), instanceProxy.class);
+
+                    wsMessage objResponse = new wsMessage("ReceiveProxy", new Gson().toJson(objProxy));
+
+                    conn.send(new Gson().toJson(objResponse));
+                    System.out.println("Client: " + conn.getRemoteSocketAddress() + " has requested a proxy and was assigned: " + objProxy.returnIPPort());
+                } catch (Exception eURL) {
+                    throw new RuntimeException(eURL);
+                }
                 break;
             }
             default: {
@@ -66,7 +91,7 @@ public class App extends WebSocketServer {
 
     public static void main(String[] args) {
         String host = "localhost";
-        int port = 8080;
+        int port = 8082;
 
         WebSocketServer server = new App(new InetSocketAddress(host, port));
         server.run();

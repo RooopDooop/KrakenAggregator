@@ -1,0 +1,9 @@
+FROM debian
+WORKDIR /KrakenPredictor/PairClient
+COPY . .
+RUN apt update -y
+RUN apt install wget -y
+RUN apt install golang-go -y
+ENTRYPOINT go run *.go
+
+#docker build -t watchmejump/krakenpredictor/pairclient:0.0.1 .
