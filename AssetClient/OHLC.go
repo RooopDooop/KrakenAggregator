@@ -7,7 +7,6 @@ import (
 	"log"
 	"net/http"
 	"strconv"
-	"strings"
 
 	"github.com/go-redis/redis"
 )
@@ -24,47 +23,48 @@ type OHCLObject struct {
 	Count      int    `json:"count"`
 }
 
-func watchOHLC(client *redis.Client) {
-	for _, strPair := range fetchAssetsPairs(client) {
-		if _, err := client.Pipelined(func(rdb redis.Pipeliner) error {
-			fmt.Println("Processing OHCL: " + strings.Split(strPair, ":")[1])
-			resp, err := http.Get("https://api.kraken.com/0/public/OHLC?pair=" + strings.Split(strPair, ":")[1] + "&interval=1")
-			if err != nil {
-				log.Fatalln(err)
-			}
+func watchOHLC(client *redis.Client, strPair string) {
+	fmt.Println("Processing OHLC: " + strPair)
+	requestProxy()
 
-			defer resp.Body.Close()
+	if _, err := client.Pipelined(func(rdb redis.Pipeliner) error {
+		fmt.Println("Processing OHCL: " + strPair)
+		resp, err := http.Get("https://api.kraken.com/0/public/OHLC?pair=" + strPair + "&interval=1")
+		if err != nil {
+			log.Fatalln(err)
+		}
 
-			bodyBytes, bodyErr := ioutil.ReadAll(resp.Body)
-			if bodyErr != nil {
-				log.Fatalln(bodyErr)
-			}
+		defer resp.Body.Close()
 
-			var response map[string]interface{}
+		bodyBytes, bodyErr := ioutil.ReadAll(resp.Body)
+		if bodyErr != nil {
+			log.Fatalln(bodyErr)
+		}
 
-			if errResponse := json.Unmarshal(bodyBytes, &response); errResponse != nil {
-				log.Fatal(errResponse)
-			}
+		var response map[string]interface{}
 
-			if response["result"] != nil {
-				for headerStr, objResult := range response["result"].(map[string]interface{}) {
-					if headerStr != "last" {
-						for _, OHLCData := range objResult.([]interface{}) {
-							rdb.HSet("OHCL:"+strings.Split(strPair, ":")[1]+"#"+strconv.Itoa(int(OHLCData.([]interface{})[0].(float64))), "PriceOpen", OHLCData.([]interface{})[1].(string))
-							rdb.HSet("OHCL:"+strings.Split(strPair, ":")[1]+"#"+strconv.Itoa(int(OHLCData.([]interface{})[0].(float64))), "PriceHigh", OHLCData.([]interface{})[2].(string))
-							rdb.HSet("OHCL:"+strings.Split(strPair, ":")[1]+"#"+strconv.Itoa(int(OHLCData.([]interface{})[0].(float64))), "PriceLow", OHLCData.([]interface{})[3].(string))
-							rdb.HSet("OHCL:"+strings.Split(strPair, ":")[1]+"#"+strconv.Itoa(int(OHLCData.([]interface{})[0].(float64))), "PriceClose", OHLCData.([]interface{})[4].(string))
-							rdb.HSet("OHCL:"+strings.Split(strPair, ":")[1]+"#"+strconv.Itoa(int(OHLCData.([]interface{})[0].(float64))), "PriceVolumeWeightedAverage", OHLCData.([]interface{})[5].(string))
-							rdb.HSet("OHCL:"+strings.Split(strPair, ":")[1]+"#"+strconv.Itoa(int(OHLCData.([]interface{})[0].(float64))), "Volume", OHLCData.([]interface{})[6].(string))
-							rdb.HSet("OHCL:"+strings.Split(strPair, ":")[1]+"#"+strconv.Itoa(int(OHLCData.([]interface{})[0].(float64))), "Count", OHLCData.([]interface{})[7].(float64))
-						}
+		if errResponse := json.Unmarshal(bodyBytes, &response); errResponse != nil {
+			log.Fatal(errResponse)
+		}
+
+		if response["result"] != nil {
+			for headerStr, objResult := range response["result"].(map[string]interface{}) {
+				if headerStr != "last" {
+					for _, OHLCData := range objResult.([]interface{}) {
+						rdb.HSet("OHCL:"+strPair+"#"+strconv.Itoa(int(OHLCData.([]interface{})[0].(float64))), "PriceOpen", OHLCData.([]interface{})[1].(string))
+						rdb.HSet("OHCL:"+strPair+"#"+strconv.Itoa(int(OHLCData.([]interface{})[0].(float64))), "PriceHigh", OHLCData.([]interface{})[2].(string))
+						rdb.HSet("OHCL:"+strPair+"#"+strconv.Itoa(int(OHLCData.([]interface{})[0].(float64))), "PriceLow", OHLCData.([]interface{})[3].(string))
+						rdb.HSet("OHCL:"+strPair+"#"+strconv.Itoa(int(OHLCData.([]interface{})[0].(float64))), "PriceClose", OHLCData.([]interface{})[4].(string))
+						rdb.HSet("OHCL:"+strPair+"#"+strconv.Itoa(int(OHLCData.([]interface{})[0].(float64))), "PriceVolumeWeightedAverage", OHLCData.([]interface{})[5].(string))
+						rdb.HSet("OHCL:"+strPair+"#"+strconv.Itoa(int(OHLCData.([]interface{})[0].(float64))), "Volume", OHLCData.([]interface{})[6].(string))
+						rdb.HSet("OHCL:"+strPair+"#"+strconv.Itoa(int(OHLCData.([]interface{})[0].(float64))), "Count", OHLCData.([]interface{})[7].(float64))
 					}
 				}
 			}
-			return nil
-		}); err != nil {
-			panic(err)
 		}
+		return nil
+	}); err != nil {
+		panic(err)
 	}
 	fmt.Println("OHLC Inserts Completed")
 }

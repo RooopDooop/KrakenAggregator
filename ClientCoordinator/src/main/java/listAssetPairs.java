@@ -90,6 +90,8 @@ public class listAssetPairs {
 
             if (objPair.assignedClient.equals("Nobody")) {
                 return objPair.returnPair();
+            } else {
+                System.out.println("Pair is linked: " + objPair.returnPair());
             }
         }
 
