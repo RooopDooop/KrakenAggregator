@@ -2,6 +2,7 @@ import org.javatuples.Pair;
 import redis.clients.jedis.Jedis;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -16,8 +17,8 @@ public class listAssetPairs {
         private String FeeCurrency;
         private String Quote;
         private int LotMultiplier;
-        private Set<Integer> LeverageSell;
-        private Set<Integer> LeverageBuy;
+        private String[] LeverageSell;
+        private String[] LeverageBuy;
         private String WebsocketName;
         private int PairDecimals;
         private Set<Pair<Integer, Float>> Fees;
@@ -29,34 +30,40 @@ public class listAssetPairs {
         //Pair<String, Integer> pair = Pair.with("Sajal", 12);
         private AssetPair(String PairName) {
             this.PairName = PairName.split(":")[1];
-            fetchPairData();
+            fetchPairData(PairName);
         }
 
-        private void fetchPairData() {
-            //TODO use the Pairname to fetch the redis data
+        private void fetchPairData(String fullPairName) {
             Jedis jedis = new Jedis();
-            List<String> returnValues = jedis.hvals("AssetPair:" + this.PairName);
 
-            this.MarginCall = Integer.parseInt(returnValues.get(0));
-            this.LotDecimal = Integer.parseInt(returnValues.get(1));
-            //this.OrderMinimum = Double.parseDouble(returnValues.get(2));
+            this.Base = jedis.hget(fullPairName, "Base");
+            this.OrderMinimum = Double.parseDouble(jedis.hget(fullPairName, "OrderMinimum"));
+            this.LotDecimal = Integer.parseInt(jedis.hget(fullPairName, "LotDecimals"));
+            this.MarginStop = Integer.parseInt(jedis.hget(fullPairName, "MarginStop"));
+            this.MarginCall = Integer.parseInt(jedis.hget(fullPairName, "MarginCall"));
+            this.FeeCurrency = jedis.hget(fullPairName, "FeeCurrency");
+            this.Quote = jedis.hget(fullPairName, "Quote");
+            this.LotMultiplier = Integer.parseInt(jedis.hget(fullPairName, "LotMultiplier"));
+            this.LeverageSell = processLeverages(jedis.hget(fullPairName, "LeverageSell"));
+            this.LeverageBuy = processLeverages(jedis.hget(fullPairName, "LeverageBuy"));
+            this.WebsocketName = jedis.hget(fullPairName, "WebsocketName");
+            this.PairDecimals = Integer.parseInt(jedis.hget(fullPairName, "PairDecimals"));
+            this.Fees = processFees(jedis.hget(fullPairName, "Fees"));
+            this.FeesMaker = processFees(jedis.hget(fullPairName, "FeesMaker"));
+        }
 
-            //this.FeesMaker = Integer.parseInt(returnValues.get(3));
+        public String returnPair() {
+            return this.PairName;
+        }
 
-            this.Base = returnValues.get(4);
+        private String[] processLeverages(String rawLeverage) {
+            String[] arrFees = {};
+            return arrFees;
+        }
 
-            //this.MarginCall = Integer.parseInt(returnValues.get(5));
-            this.FeeCurrency = returnValues.get(6);
-            this.Quote = returnValues.get(7);
-            this.LotMultiplier = Integer.parseInt(returnValues.get(8));
-
-            //this.LeverageSell = Integer.parseInt(returnValues.get(9));
-            //this.LeverageBuy = Integer.parseInt(returnValues.get(10));
-
-            this.WebsocketName = returnValues.get(11);
-            //this.PairDecimals = Integer.parseInt(returnValues.get(12));
-
-            //this.Fees = Integer.parseInt(returnValues.get(13));
+        private Set<Pair<Integer, Float>> processFees(String rawFees) {
+            Set<Pair<Integer, Float>> setLeverage = new HashSet<>();
+            return setLeverage;
         }
     }
 
@@ -75,5 +82,25 @@ public class listAssetPairs {
             AssetPair objPair = new AssetPair(strJedis);
             mapAssetPairs.put(strJedis, objPair);
         });
+    }
+
+    public String returnRandomPair() {
+        for (String strPair : mapAssetPairs.keySet()) {
+            AssetPair objPair = mapAssetPairs.get(strPair);
+
+            if (objPair.assignedClient.equals("Nobody")) {
+                return objPair.returnPair();
+            }
+        }
+
+        return null;
+    }
+
+    public void assignPairClient(String strPair, String assignedClient) {
+        mapAssetPairs.get("AssetPair:" + strPair).assignedClient = assignedClient;
+    }
+
+    public void unassignPairClient(String strPair) {
+        mapAssetPairs.get("AssetPair:" + strPair).assignedClient = "Nobody";
     }
 }

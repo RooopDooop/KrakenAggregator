@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math/rand"
 	"os"
 	"os/signal"
 	"time"
@@ -24,6 +25,9 @@ var errDial error
 var done chan interface{}
 var interrupt chan os.Signal
 
+var strPair string = ""
+var strProxy string = ""
+
 func main() {
 	//connectToDB()
 	connectToServer()
@@ -35,7 +39,7 @@ func connectToServer() {
 
 	signal.Notify(interrupt, os.Interrupt) // Notify the interrupt channel for SIGINT
 
-	socketUrl := "ws://localhost:8081" + "/"
+	socketUrl := "ws://localhost:8082" + "/"
 	connSocket, _, errDial = websocket.DefaultDialer.Dial(socketUrl, nil)
 	if errDial != nil {
 		log.Fatal("Error connecting to Websocket Server:", errDial)
@@ -44,7 +48,7 @@ func connectToServer() {
 	defer connSocket.Close()
 
 	go receiveHandler()
-	requestPairs()
+	requestPair()
 
 	// Our main loop for the client
 	// We send our relevant packets here
@@ -53,10 +57,12 @@ func connectToServer() {
 		case <-interrupt:
 			// We received a SIGINT (Ctrl + C). Terminate gracefully...
 			log.Println("Received SIGINT interrupt signal. Closing all pending connections")
+			unbindPair()
 
 			// Close our websocket connection
 			err := connSocket.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, "Client shutting down..."))
 			if err != nil {
+				unbindPair()
 				log.Println("Error during closing websocket:", err)
 				return
 			}
@@ -64,6 +70,7 @@ func connectToServer() {
 			select {
 			case <-done:
 				log.Println("Receiver Channel Closed! Exiting....")
+				unbindPair()
 			case <-time.After(time.Duration(1) * time.Second):
 				log.Println("Timeout in closing receiving channel. Exiting....")
 			}
@@ -88,22 +95,24 @@ func receiveHandler() {
 		}
 
 		switch wsMessage.Action {
-		case "BeginPair":
+		case "AssignPair":
 			//TODO connect to DB here, save
 			fmt.Println(wsMessage.Message)
+			strPair = wsMessage.Message
 
 			requestProxy(wsMessage)
 		case "StopPair":
 			fmt.Println(wsMessage.Message)
 		case "ReceiveProxy":
 			fmt.Println(wsMessage.Message)
+			fmt.Println(strProxy)
 		}
 	}
 }
 
-func requestPairs() {
+func requestPair() {
 	var jsonMessage websocketCall = websocketCall{
-		Action:   "RequestPairs",
+		Action:   "RequestPair",
 		TimeSent: time.Now().Unix(),
 		Message:  "",
 	}
@@ -126,6 +135,26 @@ func requestProxy(objMessage websocketCall) {
 		Action:    "AssignProxy",
 		TimeSent:  time.Now().Unix(),
 		Message:   "",
+	}
+
+	strJson, errMarsh := json.Marshal(jsonMessage)
+	if errMarsh != nil {
+		panic(errMarsh)
+	}
+
+	err := connSocket.WriteMessage(websocket.TextMessage, []byte(strJson))
+	if err != nil {
+		log.Println("Error during writing to websocket:", err)
+		return
+	}
+}
+
+func unbindPair() {
+	var jsonMessage websocketCall = websocketCall{
+		MessageID: rand.Intn(100000),
+		Action:    "unbindPair",
+		TimeSent:  time.Now().Unix(),
+		Message:   strPair,
 	}
 
 	strJson, errMarsh := json.Marshal(jsonMessage)

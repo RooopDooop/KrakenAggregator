@@ -41,13 +41,14 @@ public class App extends WebSocketServer {
         wsMessage objMessage = new Gson().fromJson(message, wsMessage.class);
 
         switch (objMessage.returnAction()) {
-            case "RequestPairs": {
-                wsMessage objResponse = new wsMessage("BeginPair", "['USDBTX', 'CADJPY']");
-
+            case "RequestPair": {
+                String assetPair = listPairs.returnRandomPair();
+                wsMessage objResponse = new wsMessage("AssignPair", assetPair);
+                listPairs.assignPairClient(assetPair, conn.getRemoteSocketAddress().toString());
                 conn.send(new Gson().toJson(objResponse));
                 break;
             }
-            case "PairsReceived": {
+            case "PairReceived": {
                 System.out.println("Client: " + conn.getRemoteSocketAddress() + " has successfully gotten its pairs, ID: " + objMessage.returnID());
                 break;
             }
@@ -65,6 +66,11 @@ public class App extends WebSocketServer {
                 } catch (Exception eURL) {
                     throw new RuntimeException(eURL);
                 }
+                break;
+            }
+            case "unbindPair": {
+                System.out.println("Client: " + conn.getRemoteSocketAddress() + " has unbound: " + objMessage.returnMessage());
+                listPairs.unassignPairClient(objMessage.returnMessage());
                 break;
             }
             default: {
