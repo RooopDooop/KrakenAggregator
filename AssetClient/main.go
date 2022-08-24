@@ -49,7 +49,7 @@ func connectToServer() {
 
 	signal.Notify(interrupt, os.Interrupt) // Notify the interrupt channel for SIGINT
 
-	socketUrl := "ws://localhost:8081" + "/"
+	socketUrl := "ws://localhost:8082" + "/"
 	connSocket, _, errDial = websocket.DefaultDialer.Dial(socketUrl, nil)
 	if errDial != nil {
 		log.Fatal("Error connecting to Websocket Server:", errDial)
@@ -146,7 +146,7 @@ func pairReceived(objMessage websocketCall) {
 		MessageID: objMessage.MessageID,
 		Action:    "PairReceived",
 		TimeSent:  time.Now().Unix(),
-		Message:   "",
+		Message:   objMessage.Message,
 	}
 
 	strJson, errMarsh := json.Marshal(jsonMessage)

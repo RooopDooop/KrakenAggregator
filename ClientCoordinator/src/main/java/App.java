@@ -8,9 +8,14 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
 import java.time.Duration;
+import java.util.HashMap;
+import java.util.Timer;
+import java.util.TimerTask;
 
 public class App extends WebSocketServer {
+    Timer validationTimer;
     listAssetPairs listPairs = new listAssetPairs();
+    HashMap<Integer, wsMessage> messageWatchlist = new HashMap<Integer, wsMessage>();
 
     public App(InetSocketAddress address) {
         super(address);
@@ -22,7 +27,7 @@ public class App extends WebSocketServer {
         conn.send(new Gson().toJson(objResponse));
 
         wsMessage objBroadcast = new wsMessage("ClientConnected", handshake.getResourceDescriptor());
-        broadcast( new Gson().toJson(objBroadcast)); //This method sends a message to all clients connected
+        broadcast(new Gson().toJson(objBroadcast)); //This method sends a message to all clients connected
 
         System.out.println("new connection to " + conn.getRemoteSocketAddress());
     }
@@ -40,16 +45,18 @@ public class App extends WebSocketServer {
             case "RequestPair": {
                 String assetPair = listPairs.returnRandomPair();
                 wsMessage objResponse = new wsMessage("AssignPair", assetPair);
-                listPairs.assignPairClient(assetPair, conn.getRemoteSocketAddress().toString());
                 conn.send(new Gson().toJson(objResponse));
                 break;
             }
             case "PairReceived": {
-                System.out.println("Client: " + conn.getRemoteSocketAddress() + " has successfully gotten: " + objMessage.returnMessage() + ", ID: " + objMessage.returnID());
+                System.out.println("Client: " + conn.getRemoteSocketAddress() + " has successfully gotten: " + objMessage.returnMessage() + ", message ID: " + objMessage.returnID());
+                listPairs.assignPairClient(objMessage.returnMessage(), conn.getRemoteSocketAddress().toString());
                 break;
             }
             case "AssignProxy": {
                 try {
+                    //TODO have this called directly from the client to proxy fetcher
+
                     HttpRequest request = HttpRequest.newBuilder().uri(URI.create("http://localhost:8080/randomProxy")).build();
                     HttpClient clientHTTP = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(20)).build();
                     HttpResponse<String> response = clientHTTP.send(request, HttpResponse.BodyHandlers.ofString());
@@ -89,13 +96,31 @@ public class App extends WebSocketServer {
     @Override
     public void onStart() {
         System.out.println("server started successfully");
+        new Timer().scheduleAtFixedRate(new cycleValidity(), 0, 5000);
     }
 
     public static void main(String[] args) {
         String host = "localhost";
-        int port = 8081;
+        int port = 8082;
 
         WebSocketServer server = new App(new InetSocketAddress(host, port));
         server.run();
+
+    }
+
+    class cycleValidity extends TimerTask {
+        public void run() {
+            System.out.println("Checking client validity");
+            HashMap<String, listAssetPairs.AssetPair> assignedPairs = listPairs.returnAssignedPairs();
+
+            for (listAssetPairs.AssetPair objAssetPair : assignedPairs.values()) {
+                //TODO for each of these, have the AssetPair object query the client, if client returns a false. Then client no longer is using that asset and it is reset to "nobody"
+                System.out.println("Checking client: " + objAssetPair.returnClient() + " - for: " +objAssetPair.returnPair());
+
+                //TODO will need to send a message to the client... would need to have all the clients saved somehow, that would be a class in a hashset
+                objAssetPair.sendVerifyClient(this.conn, objAssetPair.returnPair());
+
+            }
+        }
     }
 }

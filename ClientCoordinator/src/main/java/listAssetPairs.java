@@ -1,3 +1,5 @@
+import com.google.gson.Gson;
+import org.java_websocket.WebSocket;
 import org.javatuples.Pair;
 import redis.clients.jedis.Jedis;
 
@@ -7,7 +9,7 @@ import java.util.List;
 import java.util.Set;
 
 public class listAssetPairs {
-    private class AssetPair {
+    public class AssetPair {
         private final String PairName;
         private double OrderMinimum;
         private String Base;
@@ -56,6 +58,8 @@ public class listAssetPairs {
             return this.PairName;
         }
 
+        public String returnClient() { return this.assignedClient; }
+
         private String[] processLeverages(String rawLeverage) {
             String[] arrFees = {};
             return arrFees;
@@ -65,10 +69,19 @@ public class listAssetPairs {
             Set<Pair<Integer, Float>> setLeverage = new HashSet<>();
             return setLeverage;
         }
+
+        public boolean isAssigned() {
+            return !this.assignedClient.equals("Nobody");
+        }
+
+        public void sendVerifyClient(WebSocket conn) {
+            wsMessage objMessage = new wsMessage("VerifyPair", this.PairName);
+            conn.send(new Gson().toJson(objMessage));
+
+        }
     }
 
     private final HashMap<String, AssetPair> mapAssetPairs = new HashMap<String, AssetPair>();
-
     public listAssetPairs() {
         refreshAssetList();
     }
@@ -104,5 +117,19 @@ public class listAssetPairs {
 
     public void unassignPairClient(String strPair) {
         mapAssetPairs.get("AssetPair:" + strPair).assignedClient = "Nobody";
+    }
+
+    public HashMap<String, AssetPair> returnAssignedPairs() {
+        HashMap<String, AssetPair> assignedValues = new HashMap<String, AssetPair>();
+
+        for (String strPair : mapAssetPairs.keySet()) {
+            AssetPair objPair = mapAssetPairs.get(strPair);
+
+            if (objPair.isAssigned()) {
+                assignedValues.put(objPair.PairName, objPair);
+            }
+        }
+
+        return assignedValues;
     }
 }
