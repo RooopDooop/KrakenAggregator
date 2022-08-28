@@ -3,10 +3,7 @@ import org.java_websocket.WebSocket;
 import org.javatuples.Pair;
 import redis.clients.jedis.Jedis;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 public class listAssetPairs {
     public class AssetPair {
@@ -27,7 +24,8 @@ public class listAssetPairs {
         private Set<Pair<Integer, Float>> FeesMaker;
 
         //TODO assign this when a client is assigned this pair
-        private String assignedClient = "Nobody";
+        private WebSocket assignedConn;
+        private Timer assignedTimer = new Timer();
 
         //Pair<String, Integer> pair = Pair.with("Sajal", 12);
         private AssetPair(String PairName) {
@@ -58,7 +56,7 @@ public class listAssetPairs {
             return this.PairName;
         }
 
-        public String returnClient() { return this.assignedClient; }
+        public WebSocket returnClient() { return this.assignedConn; }
 
         private String[] processLeverages(String rawLeverage) {
             String[] arrFees = {};
@@ -71,13 +69,23 @@ public class listAssetPairs {
         }
 
         public boolean isAssigned() {
-            return !this.assignedClient.equals("Nobody");
+            return this.assignedConn != null;
         }
 
-        public void sendVerifyClient(WebSocket conn) {
-            wsMessage objMessage = new wsMessage("VerifyPair", this.PairName);
-            conn.send(new Gson().toJson(objMessage));
+        public void initializeVerification(WebSocket conn) {
+            this.assignedConn = conn;
+            //TODO here, add
 
+            System.out.println("Assigned timer ran: " + PairName);
+            assignedTimer.scheduleAtFixedRate(new tickVerification(), 0, 5000);
+        }
+
+        class tickVerification extends TimerTask {
+            public void run() {
+                System.out.println("Verify pair: " + PairName);
+                wsMessage objMessage = new wsMessage("VerifyPair", PairName);
+                assignedConn.send(new Gson().toJson(objMessage));
+            }
         }
     }
 
@@ -101,7 +109,7 @@ public class listAssetPairs {
         for (String strPair : mapAssetPairs.keySet()) {
             AssetPair objPair = mapAssetPairs.get(strPair);
 
-            if (objPair.assignedClient.equals("Nobody")) {
+            if (objPair.assignedConn == null) {
                 return objPair.returnPair();
             } else {
                 System.out.println("Pair is linked: " + objPair.returnPair());
@@ -111,12 +119,13 @@ public class listAssetPairs {
         return null;
     }
 
-    public void assignPairClient(String strPair, String assignedClient) {
-        mapAssetPairs.get("AssetPair:" + strPair).assignedClient = assignedClient;
+    public void assignPairClient(String strPair, WebSocket webConn) {
+        mapAssetPairs.get("AssetPair:" + strPair).initializeVerification(webConn);
     }
 
     public void unassignPairClient(String strPair) {
-        mapAssetPairs.get("AssetPair:" + strPair).assignedClient = "Nobody";
+        mapAssetPairs.get("AssetPair:" + strPair).assignedConn = null;
+        mapAssetPairs.get("AssetPair:" + strPair).assignedTimer.cancel();
     }
 
     public HashMap<String, AssetPair> returnAssignedPairs() {

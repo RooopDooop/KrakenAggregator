@@ -22,22 +22,6 @@ public class App extends WebSocketServer {
     }
 
     @Override
-    public void onOpen(WebSocket conn, ClientHandshake handshake) {
-        wsMessage objResponse = new wsMessage("WelcomeMessage", "Successfully connected!");
-        conn.send(new Gson().toJson(objResponse));
-
-        wsMessage objBroadcast = new wsMessage("ClientConnected", handshake.getResourceDescriptor());
-        broadcast(new Gson().toJson(objBroadcast)); //This method sends a message to all clients connected
-
-        System.out.println("new connection to " + conn.getRemoteSocketAddress());
-    }
-
-    @Override
-    public void onClose(WebSocket conn, int code, String reason, boolean remote) {
-        System.out.println("Closed " + conn.getRemoteSocketAddress() + " with exit code " + code + " additional info: " + reason);
-    }
-
-    @Override
     public void onMessage(WebSocket conn, String message) {
         wsMessage objMessage = new Gson().fromJson(message, wsMessage.class);
 
@@ -50,7 +34,7 @@ public class App extends WebSocketServer {
             }
             case "PairReceived": {
                 System.out.println("Client: " + conn.getRemoteSocketAddress() + " has successfully gotten: " + objMessage.returnMessage() + ", message ID: " + objMessage.returnID());
-                listPairs.assignPairClient(objMessage.returnMessage(), conn.getRemoteSocketAddress().toString());
+                listPairs.assignPairClient(objMessage.returnMessage(), conn);
                 break;
             }
             case "AssignProxy": {
@@ -92,11 +76,27 @@ public class App extends WebSocketServer {
     public void onError(WebSocket conn, Exception ex) {
         System.err.println("an error occurred on connection " + conn.getRemoteSocketAddress()  + ":" + ex);
     }
+    @Override
+    public void onOpen(WebSocket conn, ClientHandshake handshake) {
+        /*wsMessage objResponse = new wsMessage("WelcomeMessage", "Successfully connected!");
+        conn.send(new Gson().toJson(objResponse));*/
+
+        wsMessage objBroadcast = new wsMessage("ClientConnected", handshake.getResourceDescriptor());
+        broadcast(new Gson().toJson(objBroadcast)); //This method sends a message to all clients connected
+
+        System.out.println("new connection to " + conn.getRemoteSocketAddress());
+
+        //TODO each connection should start a timer for each assetpair that checks its connection
+    }
+
+    @Override
+    public void onClose(WebSocket conn, int code, String reason, boolean remote) {
+        System.out.println("Closed " + conn.getRemoteSocketAddress() + " with exit code " + code + " additional info: " + reason);
+    }
 
     @Override
     public void onStart() {
         System.out.println("server started successfully");
-        new Timer().scheduleAtFixedRate(new cycleValidity(), 0, 5000);
     }
 
     public static void main(String[] args) {
@@ -108,7 +108,7 @@ public class App extends WebSocketServer {
 
     }
 
-    class cycleValidity extends TimerTask {
+    /*class cycleValidity extends TimerTask {
         public void run() {
             System.out.println("Checking client validity");
             HashMap<String, listAssetPairs.AssetPair> assignedPairs = listPairs.returnAssignedPairs();
@@ -122,5 +122,5 @@ public class App extends WebSocketServer {
 
             }
         }
-    }
+    }*/
 }
