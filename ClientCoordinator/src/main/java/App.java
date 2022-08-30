@@ -12,16 +12,16 @@ import java.util.HashMap;
 import java.util.Timer;
 import java.util.TimerTask;
 
-public class App extends WebSocketServer {
-    Timer validationTimer;
+public class App {
+    /*Timer validationTimer;
     listAssetPairs listPairs = new listAssetPairs();
-    HashMap<Integer, wsMessage> messageWatchlist = new HashMap<Integer, wsMessage>();
+    HashMap<Integer, wsMessage> messageWatchlist = new HashMap<Integer, wsMessage>();*/
 
-    public App(InetSocketAddress address) {
+    /*public App(InetSocketAddress address) {
         super(address);
-    }
+    }*/
 
-    @Override
+   /* @Override
     public void onMessage(WebSocket conn, String message) {
         wsMessage objMessage = new Gson().fromJson(message, wsMessage.class);
 
@@ -75,12 +75,9 @@ public class App extends WebSocketServer {
     @Override
     public void onError(WebSocket conn, Exception ex) {
         System.err.println("an error occurred on connection " + conn.getRemoteSocketAddress()  + ":" + ex);
-    }
-    @Override
+    }*/
+   /* @Override
     public void onOpen(WebSocket conn, ClientHandshake handshake) {
-        /*wsMessage objResponse = new wsMessage("WelcomeMessage", "Successfully connected!");
-        conn.send(new Gson().toJson(objResponse));*/
-
         wsMessage objBroadcast = new wsMessage("ClientConnected", handshake.getResourceDescriptor());
         broadcast(new Gson().toJson(objBroadcast)); //This method sends a message to all clients connected
 
@@ -97,15 +94,14 @@ public class App extends WebSocketServer {
     @Override
     public void onStart() {
         System.out.println("server started successfully");
-    }
+    }*/
 
     public static void main(String[] args) {
         String host = "localhost";
         int port = 8082;
 
-        WebSocketServer server = new App(new InetSocketAddress(host, port));
+        WebSocketServer server = new websocketRouting(new InetSocketAddress(host, port));
         server.run();
-
     }
 
     /*class cycleValidity extends TimerTask {

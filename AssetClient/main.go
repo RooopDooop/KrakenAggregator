@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"os"
 	"os/signal"
+	"strconv"
 	"time"
 
 	"github.com/go-redis/redis"
@@ -108,6 +109,8 @@ func receiveHandler() {
 		}
 
 		switch wsMessage.Action {
+		case "ClientConnected":
+			fmt.Println("Client connected to server: " + wsMessage.Message)
 		case "AssignPair":
 			strPair = wsMessage.Message
 			requestProxy()
@@ -116,6 +119,8 @@ func receiveHandler() {
 		case "ReceiveProxy":
 			strProxy = wsMessage.Message
 			fmt.Println("Proxy received: " + strProxy)
+		case "VerifyPair":
+			fmt.Println("VerifyPair: " + wsMessage.Message + " - " + strconv.Itoa(wsMessage.MessageID))
 		}
 	}
 }

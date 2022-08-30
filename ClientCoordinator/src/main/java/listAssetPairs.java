@@ -6,7 +6,7 @@ import redis.clients.jedis.Jedis;
 import java.util.*;
 
 public class listAssetPairs {
-    public class AssetPair {
+    public class AssetPair_old {
         private final String PairName;
         private double OrderMinimum;
         private String Base;
@@ -25,10 +25,10 @@ public class listAssetPairs {
 
         //TODO assign this when a client is assigned this pair
         private WebSocket assignedConn;
-        private Timer assignedTimer = new Timer();
+        private Timer assignedTimer;
 
         //Pair<String, Integer> pair = Pair.with("Sajal", 12);
-        private AssetPair(String PairName) {
+        private AssetPair_old(String PairName) {
             this.PairName = PairName.split(":")[1];
             fetchPairData(PairName);
         }
@@ -77,6 +77,7 @@ public class listAssetPairs {
             //TODO here, add
 
             System.out.println("Assigned timer ran: " + PairName);
+            assignedTimer = new Timer();
             assignedTimer.scheduleAtFixedRate(new tickVerification(), 0, 5000);
         }
 
@@ -89,7 +90,7 @@ public class listAssetPairs {
         }
     }
 
-    private final HashMap<String, AssetPair> mapAssetPairs = new HashMap<String, AssetPair>();
+    private final HashMap<String, AssetPair_old> mapAssetPairs = new HashMap<String, AssetPair_old>();
     public listAssetPairs() {
         refreshAssetList();
     }
@@ -100,14 +101,14 @@ public class listAssetPairs {
         Jedis jedis = new Jedis();
         Set<String> returnKeys = jedis.keys("*AssetPair*");
         returnKeys.forEach((String strJedis) -> {
-            AssetPair objPair = new AssetPair(strJedis);
+            AssetPair_old objPair = new AssetPair_old(strJedis);
             mapAssetPairs.put(strJedis, objPair);
         });
     }
 
     public String returnRandomPair() {
         for (String strPair : mapAssetPairs.keySet()) {
-            AssetPair objPair = mapAssetPairs.get(strPair);
+            AssetPair_old objPair = mapAssetPairs.get(strPair);
 
             if (objPair.assignedConn == null) {
                 return objPair.returnPair();
@@ -128,11 +129,11 @@ public class listAssetPairs {
         mapAssetPairs.get("AssetPair:" + strPair).assignedTimer.cancel();
     }
 
-    public HashMap<String, AssetPair> returnAssignedPairs() {
-        HashMap<String, AssetPair> assignedValues = new HashMap<String, AssetPair>();
+    public HashMap<String, AssetPair_old> returnAssignedPairs() {
+        HashMap<String, AssetPair_old> assignedValues = new HashMap<String, AssetPair_old>();
 
         for (String strPair : mapAssetPairs.keySet()) {
-            AssetPair objPair = mapAssetPairs.get(strPair);
+            AssetPair_old objPair = mapAssetPairs.get(strPair);
 
             if (objPair.isAssigned()) {
                 assignedValues.put(objPair.PairName, objPair);
