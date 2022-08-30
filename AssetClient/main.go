@@ -1,38 +1,12 @@
 package main
 
 import (
-	"encoding/json"
-	"fmt"
-	"log"
-	"math/rand"
-	"os"
-	"os/signal"
-	"strconv"
-	"time"
-
-	"github.com/go-redis/redis"
-	"github.com/gorilla/websocket"
 	"github.com/robfig/cron"
+
+	wsLib "J.Morin/KrakenScraper/wsLib"
 )
 
-type websocketCall struct {
-	MessageID int    `json:"MessageID"`
-	Action    string `json:"Action"`
-	TimeSent  int64  `json:"TimeSent"`
-	Message   string `json:"Message"`
-}
-
-var connSocket *websocket.Conn
-var errDial error
-
-var done chan interface{}
-var interrupt chan os.Signal
-
-var strPair string = ""
 var strProxy string = ""
-
-var redisClient *redis.Client
-var redisErr error
 
 var cronTicker *cron.Cron
 var cronOHLC *cron.Cron
@@ -41,176 +15,10 @@ var cronOrders *cron.Cron
 
 func main() {
 	//connectToDB()
-	connectToServer()
+	wsLib.ConnectToServer()
 }
 
-func connectToServer() {
-	done = make(chan interface{})    // Channel to indicate that the receiverHandler is done
-	interrupt = make(chan os.Signal) // Channel to listen for interrupt signal to terminate gracefully
-
-	signal.Notify(interrupt, os.Interrupt) // Notify the interrupt channel for SIGINT
-
-	socketUrl := "ws://localhost:8082" + "/"
-	connSocket, _, errDial = websocket.DefaultDialer.Dial(socketUrl, nil)
-	if errDial != nil {
-		log.Fatal("Error connecting to Websocket Server:", errDial)
-	}
-
-	defer connSocket.Close()
-
-	go receiveHandler()
-	requestPair()
-
-	// Our main loop for the client
-	// We send our relevant packets here
-	for {
-		select {
-		case <-interrupt:
-			//TODO disconnect from DB
-			// We received a SIGINT (Ctrl + C). Terminate gracefully...
-			log.Println("Received SIGINT interrupt signal. Closing all pending connections")
-			unbindPair()
-			disconnectFromRedis()
-
-			// Close our websocket connection
-			err := connSocket.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, "Client shutting down..."))
-			if err != nil {
-				unbindPair()
-				log.Println("Error during closing websocket:", err)
-				return
-			}
-
-			select {
-			case <-done:
-				log.Println("Receiver Channel Closed! Exiting....")
-				unbindPair()
-			case <-time.After(time.Duration(1) * time.Second):
-				log.Println("Timeout in closing receiving channel. Exiting....")
-				unbindPair()
-			}
-			return
-		}
-	}
-}
-
-func receiveHandler() {
-	defer close(done)
-	for {
-		_, msg, err := connSocket.ReadMessage()
-		if err != nil {
-			log.Println("Error in receive:", err)
-			return
-		}
-
-		var wsMessage websocketCall
-		errWsMess := json.Unmarshal(msg, &wsMessage)
-		if errWsMess != nil {
-			panic(errWsMess)
-		}
-
-		switch wsMessage.Action {
-		case "ClientConnected":
-			fmt.Println("Client connected to server: " + wsMessage.Message)
-		case "AssignPair":
-			strPair = wsMessage.Message
-			requestProxy()
-			pairReceived(wsMessage)
-			connectToRedis()
-		case "ReceiveProxy":
-			strProxy = wsMessage.Message
-			fmt.Println("Proxy received: " + strProxy)
-		case "VerifyPair":
-			fmt.Println("VerifyPair: " + wsMessage.Message + " - " + strconv.Itoa(wsMessage.MessageID))
-		}
-	}
-}
-
-func requestPair() {
-	var jsonMessage websocketCall = websocketCall{
-		Action:   "RequestPair",
-		TimeSent: time.Now().Unix(),
-		Message:  "",
-	}
-
-	strJson, errMarsh := json.Marshal(jsonMessage)
-	if errMarsh != nil {
-		panic(errMarsh)
-	}
-
-	err := connSocket.WriteMessage(websocket.TextMessage, []byte(strJson))
-	if err != nil {
-		log.Println("Error during writing to websocket:", err)
-		return
-	}
-}
-
-func pairReceived(objMessage websocketCall) {
-	fmt.Println("Pair has been received: " + objMessage.Message)
-
-	var jsonMessage websocketCall = websocketCall{
-		MessageID: objMessage.MessageID,
-		Action:    "PairReceived",
-		TimeSent:  time.Now().Unix(),
-		Message:   objMessage.Message,
-	}
-
-	strJson, errMarsh := json.Marshal(jsonMessage)
-	if errMarsh != nil {
-		panic(errMarsh)
-	}
-
-	err := connSocket.WriteMessage(websocket.TextMessage, []byte(strJson))
-	if err != nil {
-		log.Println("Error during writing to websocket:", err)
-		return
-	}
-}
-
-func requestProxy() {
-	var jsonMessage websocketCall = websocketCall{
-		MessageID: rand.Intn(100000),
-		Action:    "AssignProxy",
-		TimeSent:  time.Now().Unix(),
-		Message:   "",
-	}
-
-	strJson, errMarsh := json.Marshal(jsonMessage)
-	if errMarsh != nil {
-		panic(errMarsh)
-	}
-
-	err := connSocket.WriteMessage(websocket.TextMessage, []byte(strJson))
-	if err != nil {
-		log.Println("Error during writing to websocket:", err)
-		return
-	}
-
-	if strProxy != "" {
-		os.Setenv("HTTP_PROXY", "http://"+strProxy)
-	}
-}
-
-func unbindPair() {
-	var jsonMessage websocketCall = websocketCall{
-		MessageID: rand.Intn(100000),
-		Action:    "unbindPair",
-		TimeSent:  time.Now().Unix(),
-		Message:   strPair,
-	}
-
-	strJson, errMarsh := json.Marshal(jsonMessage)
-	if errMarsh != nil {
-		panic(errMarsh)
-	}
-
-	err := connSocket.WriteMessage(websocket.TextMessage, []byte(strJson))
-	if err != nil {
-		log.Println("Error during writing to websocket:", err)
-		return
-	}
-}
-
-func connectToRedis() {
+/*func connectToRedis() {
 	//TODO re-implement a timeout
 	redisClient = redis.NewClient(&redis.Options{
 		Addr:         "localhost:6379",
@@ -240,10 +48,10 @@ func disconnectFromRedis() {
 	stopCronOrders()
 
 	fmt.Println("Closed redis DB connection!")
-}
+}*/
 
 func startCronTicker() {
-	watchTicker(redisClient, strPair)
+	/*watchTicker(redisClient, strPair)
 
 	cronTicker = cron.New()
 	cronTicker.AddFunc("@every 1h", func() {
@@ -251,11 +59,11 @@ func startCronTicker() {
 		watchTicker(redisClient, strPair)
 	})
 
-	cronTicker.Start()
+	cronTicker.Start()*/
 }
 
 func startCronOHLC() {
-	watchOHLC(redisClient, strPair)
+	/*watchOHLC(redisClient, strPair)
 
 	cronOHLC = cron.New()
 	cronOHLC.AddFunc("@every 10m", func() {
@@ -263,11 +71,11 @@ func startCronOHLC() {
 		watchOHLC(redisClient, strPair)
 	})
 
-	cronOHLC.Start()
+	cronOHLC.Start()*/
 }
 
 func startCronTrades() {
-	watchTrades(redisClient, strPair)
+	/*watchTrades(redisClient, strPair)
 
 	cronTrades = cron.New()
 	cronTrades.AddFunc("@every 5m", func() {
@@ -275,11 +83,11 @@ func startCronTrades() {
 		watchTrades(redisClient, strPair)
 	})
 
-	cronTrades.Start()
+	cronTrades.Start()*/
 }
 
 func startCronOrders() {
-	watchOrderBook(redisClient, strPair)
+	/*watchOrderBook(redisClient, strPair)
 
 	cronOrders = cron.New()
 	cronOrders.AddFunc("@every 1m", func() {
@@ -287,7 +95,7 @@ func startCronOrders() {
 		watchOrderBook(redisClient, strPair)
 	})
 
-	cronOrders.Start()
+	cronOrders.Start()*/
 }
 
 func stopCronTicker() {

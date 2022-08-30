@@ -1,3 +1,5 @@
+import com.google.gson.Gson;
+
 import java.time.Instant;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -27,5 +29,9 @@ public class wsMessage {
     }
     public String returnMessage() {
         return this.Message;
+    }
+
+    public String returnJSON() {
+        return new Gson().toJson(this);
     }
 }

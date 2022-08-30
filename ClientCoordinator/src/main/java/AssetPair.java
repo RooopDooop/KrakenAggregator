@@ -54,4 +54,8 @@ public class AssetPair {
         Set<Pair<Integer, Float>> setLeverage = new HashSet<>();
         return setLeverage;
     }
+
+    public String returnPair() {
+        return this.PairName;
+    }
 }
