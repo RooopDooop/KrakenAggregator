@@ -1,10 +1,9 @@
-package wsLib
+package proxyLib
 
 import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"os"
 )
@@ -18,8 +17,8 @@ type proxyData struct {
 	Location    string   `json:"Location"`
 }
 
-func requestProxy() {
-	response, err := http.Get("http://localhost:8080/randomProxy")
+func RequestProxy() {
+	response, err := http.Get("http://192.168.0.20:8080/randomProxy")
 
 	if err != nil {
 		fmt.Print(err.Error())
@@ -28,19 +27,16 @@ func requestProxy() {
 
 	responseData, err := ioutil.ReadAll(response.Body)
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 
 	var proxyInfo proxyData
-
 	errUnMashal := json.Unmarshal(responseData, &proxyInfo)
 
 	if errUnMashal != nil {
-
-		// if error is not nil
-		// print error
-		fmt.Println(errUnMashal)
+		panic(errUnMashal)
 	}
 
-	fmt.Println(proxyInfo)
+	os.Setenv("HTTP_PROXY", "http://"+proxyInfo.IP+":"+proxyInfo.Port)
+	fmt.Println("Proxy delivered: " + proxyInfo.IP + ":" + proxyInfo.Port)
 }

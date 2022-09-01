@@ -1,17 +1,10 @@
 package main
 
 import (
-	"github.com/robfig/cron"
-
 	wsLib "J.Morin/KrakenScraper/wsLib"
 )
 
 var strProxy string = ""
-
-var cronTicker *cron.Cron
-var cronOHLC *cron.Cron
-var cronTrades *cron.Cron
-var cronOrders *cron.Cron
 
 func main() {
 	//connectToDB()
@@ -49,70 +42,6 @@ func disconnectFromRedis() {
 
 	fmt.Println("Closed redis DB connection!")
 }*/
-
-func startCronTicker() {
-	/*watchTicker(redisClient, strPair)
-
-	cronTicker = cron.New()
-	cronTicker.AddFunc("@every 1h", func() {
-		fmt.Println("Executing CRON job for {TICKER DATA} at: " + time.Now().UTC().String())
-		watchTicker(redisClient, strPair)
-	})
-
-	cronTicker.Start()*/
-}
-
-func startCronOHLC() {
-	/*watchOHLC(redisClient, strPair)
-
-	cronOHLC = cron.New()
-	cronOHLC.AddFunc("@every 10m", func() {
-		fmt.Println("Executing CRON job for {OHLC DATA} at: " + time.Now().UTC().String())
-		watchOHLC(redisClient, strPair)
-	})
-
-	cronOHLC.Start()*/
-}
-
-func startCronTrades() {
-	/*watchTrades(redisClient, strPair)
-
-	cronTrades = cron.New()
-	cronTrades.AddFunc("@every 5m", func() {
-		fmt.Println("Executing Trade job at: " + time.Now().UTC().String())
-		watchTrades(redisClient, strPair)
-	})
-
-	cronTrades.Start()*/
-}
-
-func startCronOrders() {
-	/*watchOrderBook(redisClient, strPair)
-
-	cronOrders = cron.New()
-	cronOrders.AddFunc("@every 1m", func() {
-		fmt.Println("Executing Order job at: " + time.Now().UTC().String())
-		watchOrderBook(redisClient, strPair)
-	})
-
-	cronOrders.Start()*/
-}
-
-func stopCronTicker() {
-	cronTicker.Stop()
-}
-
-func stopCronOHLC() {
-	cronOHLC.Stop()
-}
-
-func stopCronTrades() {
-	cronTrades.Stop()
-}
-
-func stopCronOrders() {
-	cronOrders.Stop()
-}
 
 //func connectToDB() {
 //TODO fix this

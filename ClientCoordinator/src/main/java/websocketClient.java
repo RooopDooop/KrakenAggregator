@@ -24,7 +24,7 @@ public class websocketClient {
     }
 
     public void assignAssetPair(AssetPair assignedPair) {
-        //TODO start a timer to verify that the client is still processing this pair
+       //This function assigns the asset pair and begins the verification timer
         this.assignedAssetPair = assignedPair;
 
         new Timer().scheduleAtFixedRate(timerTask, 0, 5000);

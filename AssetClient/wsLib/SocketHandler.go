@@ -8,7 +8,9 @@ import (
 	"os/signal"
 	"time"
 
+	krakenLib "J.Morin/KrakenScraper/KrakenLib"
 	"github.com/gorilla/websocket"
+	"github.com/robfig/cron"
 )
 
 type websocketCall struct {
@@ -23,6 +25,11 @@ var errDial error
 
 var done chan interface{}
 var interrupt chan os.Signal
+
+var cronTicker *cron.Cron
+var cronOHLC *cron.Cron
+var cronTrades *cron.Cron
+var cronOrders *cron.Cron
 
 func receiveHandler() {
 	defer close(done)
@@ -51,15 +58,15 @@ func receiveHandler() {
 			fmt.Println("Received Error from server: " + wsMessage.Message)
 		case "PairAssignment":
 			ReceivedPair(wsMessage)
+			startCronJobs(wsMessage.Message)
 		case "tickVerification":
-			fmt.Println("Server is verifying: " + wsMessage.Message + " - against: " + strPair)
 			PairVerificationTick(wsMessage)
+		case "TerminateClient":
+			//TODO terminate here
+			fmt.Println("Server has indicated a termination of the client")
+			stopCronJobs()
 
-			/*case "AssignPair":
-			strPair = wsMessage.Message
-			//requestProxy()
-			pairReceived(wsMessage)
-			connectToRedis()*/
+			//TODO somehow close the runtime
 		}
 	}
 }
@@ -87,7 +94,7 @@ func ConnectToServer() {
 			// We received a SIGINT (Ctrl + C). Terminate gracefully...
 			log.Println("Received SIGINT interrupt signal. Closing all pending connections")
 			//UnbindPair()
-			disconnectFromRedis()
+			//disconnectFromRedis()
 
 			// Close our websocket connection
 			err := connSocket.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, "Client shutting down..."))
@@ -105,4 +112,23 @@ func ConnectToServer() {
 			return
 		}
 	}
+}
+
+func startCronJobs(pairName string) {
+	cronOHLC = krakenLib.GenerateCronOHLC(pairName)
+	cronTicker = krakenLib.GenerateCronTicker(pairName)
+	cronTrades = krakenLib.GenerateCronTrades(pairName)
+	cronOrders = krakenLib.GenerateCronOrders(pairName)
+
+	cronOHLC.Start()
+	cronTicker.Start()
+	cronTrades.Start()
+	cronOrders.Start()
+}
+
+func stopCronJobs() {
+	cronTicker.Stop()
+	cronOHLC.Stop()
+	cronTrades.Stop()
+	cronOrders.Stop()
 }

@@ -33,6 +33,7 @@ func RequestPair() {
 }
 
 func ReceivedPair(objMessage websocketCall) {
+	//Somehow begin CRON jobs from here
 	fmt.Println("Server has Assigned: " + objMessage.Message)
 	strPair = objMessage.Message
 

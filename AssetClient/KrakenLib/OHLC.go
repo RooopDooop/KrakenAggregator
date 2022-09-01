@@ -1,4 +1,4 @@
-package main
+package krakenLib
 
 import (
 	"encoding/json"
@@ -7,8 +7,13 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/go-redis/redis"
+	"github.com/robfig/cron"
+
+	proxyLib "J.Morin/KrakenScraper/proxyLib"
+	redisLib "J.Morin/KrakenScraper/redisLib"
 )
 
 type OHCLObject struct {
@@ -23,12 +28,23 @@ type OHCLObject struct {
 	Count      int    `json:"count"`
 }
 
+func GenerateCronOHLC(strPair string) *cron.Cron {
+	watchOHLC(redisLib.ConnectToRedis(), strPair)
+
+	cronOHLC := cron.New()
+	cronOHLC.AddFunc("@every 10m", func() {
+		fmt.Println("Executing CRON job for {OHLC DATA} at: " + time.Now().UTC().String())
+		watchOHLC(redisLib.ConnectToRedis(), strPair)
+	})
+
+	return cronOHLC
+}
+
 func watchOHLC(client *redis.Client, strPair string) {
-	fmt.Println("Processing OHLC: " + strPair)
-	requestProxy()
+	proxyLib.RequestProxy()
 
 	if _, err := client.Pipelined(func(rdb redis.Pipeliner) error {
-		fmt.Println("Processing OHCL: " + strPair)
+		fmt.Println("Processing OHLC: " + strPair)
 		resp, err := http.Get("https://api.kraken.com/0/public/OHLC?pair=" + strPair + "&interval=1")
 		if err != nil {
 			log.Fatalln(err)
@@ -67,4 +83,5 @@ func watchOHLC(client *redis.Client, strPair string) {
 		panic(err)
 	}
 	fmt.Println("OHLC Inserts Completed")
+	redisLib.DisconnectFromRedis(client)
 }

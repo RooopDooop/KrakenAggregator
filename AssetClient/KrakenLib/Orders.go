@@ -1,4 +1,4 @@
-package main
+package krakenLib
 
 import (
 	"encoding/json"
@@ -6,13 +6,30 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"time"
+
+	proxyLib "J.Morin/KrakenScraper/proxyLib"
+	redisLib "J.Morin/KrakenScraper/redisLib"
 
 	"github.com/go-redis/redis"
+	"github.com/robfig/cron"
 )
+
+func GenerateCronOrders(strPair string) *cron.Cron {
+	watchOrderBook(redisLib.ConnectToRedis(), strPair)
+
+	cronOrders := cron.New()
+	cronOrders.AddFunc("@every 1m", func() {
+		fmt.Println("Executing Order job at: " + time.Now().UTC().String())
+		watchOrderBook(redisLib.ConnectToRedis(), strPair)
+	})
+
+	return cronOrders
+}
 
 func watchOrderBook(client *redis.Client, strPair string) {
 	fmt.Println("Processing Order Book: " + strPair)
-	requestProxy()
+	proxyLib.RequestProxy()
 
 	resp, err := http.Get("https://api.kraken.com/0/public/Depth?pair=" + strPair)
 	if err != nil {
@@ -55,4 +72,5 @@ func watchOrderBook(client *redis.Client, strPair string) {
 	}
 
 	fmt.Println("Order Book Inserts Completed")
+	redisLib.DisconnectFromRedis(client)
 }

@@ -6,22 +6,21 @@ import redis.clients.jedis.Jedis;
 
 import java.net.InetSocketAddress;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Random;
 import java.util.Set;
 
 public class websocketRouting extends WebSocketServer {
     HashMap<WebSocket, websocketClient> listClientConnections = new HashMap<>();
     HashMap<String, AssetPair> listAssetPairs = new HashMap<>();
+    Jedis jedis = new Jedis("192.168.0.20", 6379);
 
     public websocketRouting(InetSocketAddress address) {
         super(address);
 
         listAssetPairs.clear();
-        Jedis jedis = new Jedis();
         Set<String> returnKeys = jedis.keys("*AssetPair*");
         returnKeys.forEach((String strJedis) -> {
-            AssetPair objPair = new AssetPair(strJedis);
+            AssetPair objPair = new AssetPair(jedis, strJedis);
             listAssetPairs.put(objPair.returnPair(), objPair);
         });
     }

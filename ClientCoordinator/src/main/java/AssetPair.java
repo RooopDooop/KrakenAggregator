@@ -21,14 +21,12 @@ public class AssetPair {
     private Set<Pair<Integer, Float>> Fees;
     private Set<Pair<Integer, Float>> FeesMaker;
 
-    public AssetPair(String PairName) {
+    public AssetPair(Jedis jedis, String PairName) {
         this.PairName = PairName.split(":")[1];
-        fetchPairData(PairName);
+        fetchPairData(jedis, PairName);
     }
 
-    private void fetchPairData(String fullPairName) {
-        Jedis jedis = new Jedis();
-
+    private void fetchPairData(Jedis jedis, String fullPairName) {
         this.Base = jedis.hget(fullPairName, "Base");
         this.OrderMinimum = Double.parseDouble(jedis.hget(fullPairName, "OrderMinimum"));
         this.LotDecimal = Integer.parseInt(jedis.hget(fullPairName, "LotDecimals"));

@@ -1,4 +1,4 @@
-package main
+package krakenLib
 
 import (
 	"encoding/json"
@@ -10,11 +10,26 @@ import (
 	"time"
 
 	"github.com/go-redis/redis"
+	"github.com/robfig/cron"
+
+	proxyLib "J.Morin/KrakenScraper/proxyLib"
+	redisLib "J.Morin/KrakenScraper/redisLib"
 )
 
+func GenerateCronTicker(strPair string) *cron.Cron {
+	watchTicker(redisLib.ConnectToRedis(), strPair)
+
+	cronTicker := cron.New()
+	cronTicker.AddFunc("@every 1h", func() {
+		fmt.Println("Executing CRON job for {TICKER DATA} at: " + time.Now().UTC().String())
+		watchTicker(redisLib.ConnectToRedis(), strPair)
+	})
+
+	return cronTicker
+}
+
 func watchTicker(client *redis.Client, strAssetPair string) {
-	fmt.Println("Processing Ticker: " + strAssetPair)
-	requestProxy()
+	proxyLib.RequestProxy()
 
 	resp, err := http.Get("https://api.kraken.com/0/public/Ticker?pair=" + strAssetPair)
 	if err != nil {
@@ -91,4 +106,7 @@ func watchTicker(client *redis.Client, strAssetPair string) {
 
 		client.HSet("Ticker:"+strAssetPair+"#"+strconv.Itoa(int(time.Now().Unix())), "OpeningPrice", todayOpeningPrice)
 	}
+
+	fmt.Println("Ticker has been completed")
+	redisLib.DisconnectFromRedis(client)
 }
