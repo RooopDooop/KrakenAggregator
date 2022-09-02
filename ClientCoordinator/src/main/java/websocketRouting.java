@@ -10,7 +10,7 @@ import java.util.Random;
 import java.util.Set;
 
 public class websocketRouting extends WebSocketServer {
-    HashMap<WebSocket, websocketClient> listClientConnections = new HashMap<>();
+    //HashMap<WebSocket, websocketClient> listClientConnections = new HashMap<>();
     HashMap<String, AssetPair> listAssetPairs = new HashMap<>();
     Jedis jedis = new Jedis("192.168.0.20", 6379);
 
@@ -28,16 +28,29 @@ public class websocketRouting extends WebSocketServer {
     @Override
     public void onOpen(WebSocket conn, ClientHandshake handshake) {
         wsMessage objWelcome = new wsMessage("ClientWelcoming", "Welcome to the server!");
-        wsMessage objBroadcast = new wsMessage("ClientConnected", conn.getRemoteSocketAddress().toString());
+        //wsMessage objBroadcast = new wsMessage("ClientConnected", conn.getRemoteSocketAddress().toString());
 
-        listClientConnections.put(conn, new websocketClient(conn));
-        listClientConnections.get(conn).sendMessage(objWelcome);
+        conn.send(objWelcome.returnJSON());
 
-        broadcastToOthers(objBroadcast, conn);
+        //listClientConnections.put(conn, new websocketClient(conn));
+        //listClientConnections.get(conn).sendMessage(objWelcome);
+
+        //broadcastToOthers(objBroadcast, conn);
     }
 
     @Override
     public void onClose(WebSocket conn, int code, String reason, boolean remote) {
+        //TODO iterate through all the pairs, check the connections
+
+        for (AssetPair asset : listAssetPairs.values()) {
+            if (asset.returnClient() != null) {
+                if (asset.returnClient().clientConn == conn) {
+                    System.out.println("Stopping client: " + asset.returnClient().clientConn.getRemoteSocketAddress());
+                    asset.returnClient().stopValidityCheck();
+                }
+            }
+        }
+
         System.out.println("Closing: " + conn.getRemoteSocketAddress());
         disconnectClient(conn);
     }
@@ -47,7 +60,30 @@ public class websocketRouting extends WebSocketServer {
         wsMessage objReceived = new Gson().fromJson(message, wsMessage.class);
 
         switch (objReceived.returnAction()) {
-            case "RequestPair": {
+            case "BeginPairWork": {
+                //TODO assign pair client
+                System.out.println(conn.getRemoteSocketAddress() + " is working on: " + objReceived.returnMessage());
+                System.out.println(objReceived.returnMessage());
+                this.listAssetPairs.get(objReceived.returnMessage()).associateClient(conn);
+            }
+            case "tickVerifyResponse": {
+                //This function is receiving the verification from the client that they are still watching their assigned pair
+                //if (objReceived.returnMessage().equals("false")) {
+                    //if validity check returns false, kill connection, in docker that would lead to a program stop and the whole container would shut down
+                    //Because the connection is closed, the AssetPair variable populated in the connection will be deleted too, freeing up the AssetPair from the global list to be re-assigned.
+                //    System.out.println("False verification: " + conn.getRemoteSocketAddress() + " for " + this.listClientConnections.get(conn).returnAssetPair().returnPair() +" Terminating.");
+                 //   disconnectClient(conn);
+                //}
+
+                //TODO if pair isn't the same, then shutdown client
+                if (this.listAssetPairs.get(objReceived.returnMessage()).returnClient().clientConn != conn) {
+                    this.listAssetPairs.get(objReceived.returnMessage()).stopClient();
+                    disconnectClient(conn);
+                } else {
+                    System.out.println("Verification passed: " + this.listAssetPairs.get(objReceived.returnMessage()).returnClient().clientConn.getRemoteSocketAddress());
+                }
+            }
+            /*case "RequestPair": {
                 //This function is called by the client looking for a pair after connecting
                 AssetPair[] arrPairs = this.findNotAssignedPairs().values().toArray(new AssetPair[0]);
                 AssetPair objPair = arrPairs[new Random().nextInt(arrPairs.length - 1)];
@@ -60,15 +96,7 @@ public class websocketRouting extends WebSocketServer {
                 //This function is receiving the confirmation by the client that they are watching this assetPair, will also start the verify ticker
                 listClientConnections.get(conn).assignAssetPair(this.listAssetPairs.get(objReceived.returnMessage()));
             }
-            case "tickVerifyResponse": {
-                //This function is receiving the verification from the client that they are still watching their assigned pair
-                if (objReceived.returnMessage().equals("false")) {
-                    //if validity check returns false, kill connection, in docker that would lead to a program stop and the whole container would shut down
-                    //Because the connection is closed, the AssetPair variable populated in the connection will be deleted too, freeing up the AssetPair from the global list to be re-assigned.
-                    System.out.println("False verification: " + conn.getRemoteSocketAddress() + " for " + this.listClientConnections.get(conn).returnAssetPair().returnPair() +" Terminating.");
-                    disconnectClient(conn);
-                }
-            }
+           */
             default: {
                 wsMessage objError = new wsMessage("ClientError", "messageParseFailure");
                 break;
@@ -93,28 +121,28 @@ public class websocketRouting extends WebSocketServer {
         wsMessage objBroadcast = new wsMessage("ClientDisconnected", conn.getRemoteSocketAddress().toString());
         broadcastToOthers(objBroadcast, conn);
 
-        listClientConnections.get(conn).stopValidityCheck();
-        listClientConnections.remove(conn);
+        //listClientConnections.get(conn).stopValidityCheck();
+        //listClientConnections.remove(conn);
     }
 
     private void broadcastToOthers(wsMessage objBroadcast, WebSocket avoidConn) {
-        for (websocketClient objClient : listClientConnections.values()) {
+       /* for (websocketClient objClient : listClientConnections.values()) {
             if (objClient.clientConn != listClientConnections.get(avoidConn).clientConn) {
                 objClient.sendMessage(objBroadcast);
             }
-        }
+        }*/
     }
 
     private HashMap<String, AssetPair> findAssignedPairs() {
         HashMap<String, AssetPair>listAssigned = new HashMap<>();
 
-        for (websocketClient objClient : listClientConnections.values()) {
-            AssetPair objAssigned = objClient.returnAssetPair();
-            if (objAssigned != null) {
+        //for (websocketClient objClient : listClientConnections.values()) {
+            //AssetPair objAssigned = objClient.returnAssetPair();
+            /*if (objAssigned != null) {
                 System.out.println("Added: " + objAssigned);
                 listAssigned.put(objAssigned.returnPair(), objAssigned);
-            }
-        }
+            }*/
+        //}
 
         return listAssigned;
     }
@@ -122,13 +150,13 @@ public class websocketRouting extends WebSocketServer {
     private HashMap<String, AssetPair> findNotAssignedPairs() {
         HashMap<String, AssetPair> listNotAssigned = listAssetPairs;
 
-        for (websocketClient objClient : listClientConnections.values()) {
-            AssetPair objAssigned = objClient.returnAssetPair();
-            if (objAssigned != null) {
+        //for (websocketClient objClient : listClientConnections.values()) {
+            //AssetPair objAssigned = objClient.returnAssetPair();
+            /*if (objAssigned != null) {
                 System.out.println("Removed: " + objAssigned);
                 listNotAssigned.remove(objAssigned.returnPair());
-            }
-        }
+            }*/
+        //}
 
         return listNotAssigned;
     }

@@ -31,6 +31,8 @@ var cronOHLC *cron.Cron
 var cronTrades *cron.Cron
 var cronOrders *cron.Cron
 
+var assignedPair string
+
 func receiveHandler() {
 	defer close(done)
 	for {
@@ -49,18 +51,16 @@ func receiveHandler() {
 		switch wsMessage.Action {
 		case "ClientWelcoming":
 			fmt.Println("Server message: " + wsMessage.Message)
-			RequestPair()
+			BeginPairWork(assignedPair)
+			startCronJobs(assignedPair)
 		case "ClientConnected":
 			fmt.Println("Client connected to server: " + wsMessage.Message)
 		case "ClientDisconnected":
 			fmt.Println("Client disconnected from server: " + wsMessage.Message)
 		case "ClientError":
 			fmt.Println("Received Error from server: " + wsMessage.Message)
-		case "PairAssignment":
-			ReceivedPair(wsMessage)
-			startCronJobs(wsMessage.Message)
 		case "tickVerification":
-			PairVerificationTick(wsMessage)
+			PairVerificationTick(wsMessage, assignedPair)
 		case "TerminateClient":
 			//TODO terminate here
 			fmt.Println("Server has indicated a termination of the client")
@@ -71,7 +71,9 @@ func receiveHandler() {
 	}
 }
 
-func ConnectToServer() {
+func ConnectToServer(strPair string) {
+	assignedPair = strPair
+
 	done = make(chan interface{})    // Channel to indicate that the receiverHandler is done
 	interrupt = make(chan os.Signal) // Channel to listen for interrupt signal to terminate gracefully
 

@@ -2,17 +2,33 @@ package wsLib
 
 import (
 	"encoding/json"
-	"fmt"
 	"math/rand"
-	"strconv"
 	"time"
 
 	"github.com/gorilla/websocket"
 )
 
-var strPair string = ""
+func BeginPairWork(strPair string) {
+	rand.Seed(time.Now().UnixNano())
+	var jsonMessage websocketCall = websocketCall{
+		MessageID: rand.Intn(9999999),
+		Action:    "BeginPairWork",
+		TimeSent:  time.Now().Unix(),
+		Message:   strPair,
+	}
 
-func RequestPair() {
+	strJson, errMarsh := json.Marshal(jsonMessage)
+	if errMarsh != nil {
+		panic(errMarsh)
+	}
+
+	err := connSocket.WriteMessage(websocket.TextMessage, []byte(strJson))
+	if err != nil {
+		panic(err)
+	}
+}
+
+/*func RequestPair() {
 	rand.Seed(time.Now().UnixNano())
 	var jsonMessage websocketCall = websocketCall{
 		MessageID: rand.Intn(9999999),
@@ -30,9 +46,9 @@ func RequestPair() {
 	if err != nil {
 		panic(err)
 	}
-}
+}*/
 
-func ReceivedPair(objMessage websocketCall) {
+/*func ReceivedPair(objMessage websocketCall) {
 	//Somehow begin CRON jobs from here
 	fmt.Println("Server has Assigned: " + objMessage.Message)
 	strPair = objMessage.Message
@@ -53,20 +69,14 @@ func ReceivedPair(objMessage websocketCall) {
 	if err != nil {
 		panic(err)
 	}
-}
+}*/
 
-func PairVerificationTick(objMessage websocketCall) {
-	var responseAnswer bool = false
-
-	if objMessage.Message == strPair {
-		responseAnswer = true
-	}
-
+func PairVerificationTick(objMessage websocketCall, strPair string) {
 	var jsonMessage websocketCall = websocketCall{
 		MessageID: objMessage.MessageID,
 		Action:    "tickVerifyResponse",
 		TimeSent:  time.Now().Unix(),
-		Message:   strconv.FormatBool(responseAnswer),
+		Message:   strPair,
 	}
 
 	strJson, errMarsh := json.Marshal(jsonMessage)

@@ -12,26 +12,16 @@ public class websocketClient {
     //UnassignPairClient
 
     WebSocket clientConn;
-    AssetPair assignedAssetPair;
-    TimerTask timerTask = new tickValidity();
+    private TimerTask timerTask = new tickValidity();
+
+    //AssetPair assignedAssetPair;
+    //TimerTask timerTask = new tickValidity();
 
     HashMap<Integer, wsMessage> listMessageHistory = new HashMap<>();
 
     public websocketClient(WebSocket conn) {
         this.clientConn = conn;
-
-        System.out.println("Connected: " + conn.getRemoteSocketAddress());
-    }
-
-    public void assignAssetPair(AssetPair assignedPair) {
-       //This function assigns the asset pair and begins the verification timer
-        this.assignedAssetPair = assignedPair;
-
         new Timer().scheduleAtFixedRate(timerTask, 0, 5000);
-    }
-
-    public AssetPair returnAssetPair() {
-        return this.assignedAssetPair;
     }
 
     public void sendMessage(wsMessage desiredMessage) {
@@ -45,15 +35,13 @@ public class websocketClient {
 
     class tickValidity extends TimerTask {
         public void run() {
-            System.out.println("Checking " + clientConn.getRemoteSocketAddress() + " validity: " + assignedAssetPair.returnPair());
-
-            //TODO send validity message to client
-
-            wsMessage objValidity = new wsMessage("tickVerification", assignedAssetPair.returnPair());
+            wsMessage objValidity = new wsMessage("tickVerification", "");
             sendMessage(objValidity);
         }
     }
+
     public void stopValidityCheck() {
+        System.out.println("Stopping validity check");
         this.timerTask.cancel();
     }
 }
