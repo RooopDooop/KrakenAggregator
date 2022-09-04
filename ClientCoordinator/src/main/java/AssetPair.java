@@ -28,6 +28,8 @@ public class AssetPair {
     public AssetPair(Jedis jedis, String PairName) {
         this.PairName = PairName.split(":")[1];
         fetchPairData(jedis, PairName);
+
+        //this.generateClient();
     }
 
     private void fetchPairData(Jedis jedis, String fullPairName) {
@@ -81,5 +83,10 @@ public class AssetPair {
 
     public void generateClient() {
         //TODO send CLI command to docker to spin up a client
+        try {
+            Process process = Runtime.getRuntime().exec("docker run --net krakenNetwork -e PAIR_ENV=" + this.PairName + " watchmejump/krakenpredictor/assetclient:0.0.2");
+        } catch (Exception ex) {
+            System.out.println(ex);
+        }
     }
 }

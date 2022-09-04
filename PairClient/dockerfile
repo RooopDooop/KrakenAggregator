@@ -7,3 +7,4 @@ RUN apt install golang-go -y
 ENTRYPOINT go run *.go
 
 #docker build -t watchmejump/krakenpredictor/pairclient:0.0.1 .
+#go run *.go -pair XBTUSDC

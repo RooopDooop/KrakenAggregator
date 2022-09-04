@@ -1,9 +1,10 @@
 FROM debian
-WORKDIR /KrakenPredictor/Software
+WORKDIR /KrakenPredictor/AssetClient
 COPY . .
-RUN apt update -y
-RUN apt install wget -y
-RUN apt install golang-go -y
-ENTRYPOINT go run *.go
+RUN apt-get install ca-certificates -y
+ENTRYPOINT ./AssetClient -pair ${PAIR_ENV}
 
-#docker build -t watchmejump/krakenpredictor/assetclient:0.0.1 .
+#docker build -t watchmejump/krakenpredictor/assetclient:0.0.2 --build-arg PAIR_ENV=Unknown .
+#docker run --net krakenNetwork -e PAIR_ENV=XBTUSDC watchmejump/krakenpredictor/assetclient:0.0.2
+
+#env GOOS=linux GOARCH=amd64 go build *.go

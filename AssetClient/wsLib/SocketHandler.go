@@ -8,7 +8,7 @@ import (
 	"os/signal"
 	"time"
 
-	krakenLib "J.Morin/KrakenScraper/KrakenLib"
+	krakenLib "J.Morin/KrakenScraper/krakenLib"
 	"github.com/gorilla/websocket"
 	"github.com/robfig/cron"
 )
@@ -79,7 +79,7 @@ func ConnectToServer(strPair string) {
 
 	signal.Notify(interrupt, os.Interrupt) // Notify the interrupt channel for SIGINT
 
-	socketUrl := "ws://localhost:8081" + "/"
+	socketUrl := "ws://192.168.0.13:8081" + "/"
 	connSocket, _, errDial = websocket.DefaultDialer.Dial(socketUrl, nil)
 	if errDial != nil {
 		log.Fatal("Error connecting to Websocket Server:", errDial)

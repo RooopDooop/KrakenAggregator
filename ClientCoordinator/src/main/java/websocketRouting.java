@@ -77,10 +77,9 @@ public class websocketRouting extends WebSocketServer {
 
                 //TODO if pair isn't the same, then shutdown client
                 if (this.listAssetPairs.get(objReceived.returnMessage()).returnClient().clientConn != conn) {
+                    System.out.println("Verification failed: " + this.listAssetPairs.get(objReceived.returnMessage()).returnClient().clientConn.getRemoteSocketAddress());
                     this.listAssetPairs.get(objReceived.returnMessage()).stopClient();
                     disconnectClient(conn);
-                } else {
-                    System.out.println("Verification passed: " + this.listAssetPairs.get(objReceived.returnMessage()).returnClient().clientConn.getRemoteSocketAddress());
                 }
             }
             /*case "RequestPair": {
@@ -115,6 +114,17 @@ public class websocketRouting extends WebSocketServer {
     @Override
     public void onStart() {
         System.out.println("Started websocket server");
+
+        int test = 0;
+        for (AssetPair asset : listAssetPairs.values()) {
+            if (asset.returnClient() == null) {
+                test++;
+
+                if (test < 275) {
+                    asset.generateClient();
+                }
+            }
+        }
     }
 
     private void disconnectClient(WebSocket conn) {
