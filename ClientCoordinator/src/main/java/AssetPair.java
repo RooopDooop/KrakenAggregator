@@ -72,7 +72,7 @@ public class AssetPair {
     public void associateClient(WebSocket conn) {
         this.childClient = new websocketClient(conn);
 
-        System.out.println("Assigned client");
+        System.out.println("Assigned client: " + conn.getRemoteSocketAddress() + " - " + this.PairName);
     }
 
     public void stopClient() {
@@ -81,12 +81,12 @@ public class AssetPair {
         this.childClient.stopValidityCheck();
     }
 
-    public void generateClient() {
+    /*public void generateClient() {
         //TODO send CLI command to docker to spin up a client
         try {
-            Process process = Runtime.getRuntime().exec("docker run --net krakenNetwork -e PAIR_ENV=" + this.PairName + " watchmejump/krakenpredictor/assetclient:0.0.2");
+            Process process = Runtime.getRuntime().exec("docker run --net krakenNetwork -e PAIR_ENV=" + this.PairName + " watchmejump/krakenpredictor/assetclient:0.0.3");
         } catch (Exception ex) {
             System.out.println(ex);
         }
-    }
+    }*/
 }

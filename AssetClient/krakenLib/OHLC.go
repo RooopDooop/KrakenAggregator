@@ -28,7 +28,7 @@ type OHCLObject struct {
 }
 
 func GenerateCronOHLC(strPair string) *cron.Cron {
-	watchOHLC(redisLib.ConnectToRedis(), strPair)
+	go watchOHLC(redisLib.ConnectToRedis(), strPair)
 
 	cronOHLC := cron.New()
 	cronOHLC.AddFunc("@every 10m", func() {
@@ -81,6 +81,6 @@ func watchOHLC(client *redis.Client, strPair string) {
 	}); err != nil {
 		panic(err)
 	}
-	fmt.Println("OHLC Inserts Completed")
+	fmt.Println("OHLC Inserts Completed: " + strPair)
 	redisLib.DisconnectFromRedis(client)
 }

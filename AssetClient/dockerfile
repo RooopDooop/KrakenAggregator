@@ -1,10 +1,10 @@
-FROM debian
+FROM alpine
 WORKDIR /KrakenPredictor/AssetClient
 COPY . .
-RUN apt-get install ca-certificates -y
-ENTRYPOINT ./AssetClient -pair ${PAIR_ENV}
+RUN apk add gcompat && apk add ca-certificates
+ENTRYPOINT ./main -pair ${PAIR_ENV}
 
-#docker build -t watchmejump/krakenpredictor/assetclient:0.0.2 --build-arg PAIR_ENV=Unknown .
-#docker run --net krakenNetwork -e PAIR_ENV=XBTUSDC watchmejump/krakenpredictor/assetclient:0.0.2
+#docker build --no-cache -t watchmejump/krakenpredictor/assetclient:0.0.3 --build-arg PAIR_ENV=Unknown .
+#docker run --net krakenNetwork -e PAIR_ENV=XBTUSDC watchmejump/krakenpredictor/assetclient:0.0.3
 
 #env GOOS=linux GOARCH=amd64 go build *.go

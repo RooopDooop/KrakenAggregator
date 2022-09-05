@@ -25,7 +25,7 @@ type TradeObject struct {
 }
 
 func GenerateCronTrades(strPair string) *cron.Cron {
-	watchTrades(redisLib.ConnectToRedis(), strPair)
+	go watchTrades(redisLib.ConnectToRedis(), strPair)
 
 	cronTrades := cron.New()
 	cronTrades.AddFunc("@every 5m", func() {
@@ -80,6 +80,6 @@ func watchTrades(client *redis.Client, strPair string) {
 		}
 	}
 
-	fmt.Println("Inserted all trades")
+	fmt.Println("Inserted all trades: " + strPair)
 	redisLib.DisconnectFromRedis(client)
 }

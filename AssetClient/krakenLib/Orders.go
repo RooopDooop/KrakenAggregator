@@ -16,7 +16,7 @@ import (
 )
 
 func GenerateCronOrders(strPair string) *cron.Cron {
-	watchOrderBook(redisLib.ConnectToRedis(), strPair)
+	go watchOrderBook(redisLib.ConnectToRedis(), strPair)
 
 	cronOrders := cron.New()
 	cronOrders.AddFunc("@every 1m", func() {
@@ -71,6 +71,6 @@ func watchOrderBook(client *redis.Client, strPair string) {
 
 	}
 
-	fmt.Println("Order Book Inserts Completed")
+	fmt.Println("Order Book Inserts Completed: " + strPair)
 	redisLib.DisconnectFromRedis(client)
 }

@@ -17,7 +17,7 @@ public class websocketClient {
     //AssetPair assignedAssetPair;
     //TimerTask timerTask = new tickValidity();
 
-    HashMap<Integer, wsMessage> listMessageHistory = new HashMap<>();
+    //HashMap<Integer, wsMessage> listMessageHistory = new HashMap<>();
 
     public websocketClient(WebSocket conn) {
         this.clientConn = conn;
@@ -26,12 +26,12 @@ public class websocketClient {
 
     public void sendMessage(wsMessage desiredMessage) {
         clientConn.send(desiredMessage.returnJSON());
-        this.listMessageHistory.put(desiredMessage.returnID(), desiredMessage);
+        //this.listMessageHistory.put(desiredMessage.returnID(), desiredMessage);
     }
 
-    public HashMap<Integer, wsMessage> returnMessageHistory() {
-        return this.listMessageHistory;
-    }
+    //public HashMap<Integer, wsMessage> returnMessageHistory() {
+       // return this.listMessageHistory;
+    //}
 
     class tickValidity extends TimerTask {
         public void run() {

@@ -20,20 +20,7 @@ type websocketCall struct {
 	Message   string `json:"Message"`
 }
 
-var connSocket *websocket.Conn
-var errDial error
-
-var done chan interface{}
-var interrupt chan os.Signal
-
-var cronTicker *cron.Cron
-var cronOHLC *cron.Cron
-var cronTrades *cron.Cron
-var cronOrders *cron.Cron
-
-var assignedPair string
-
-func receiveHandler() {
+func receiveHandler(strPair string, done chan interface{}, connSocket *websocket.Conn) {
 	defer close(done)
 	for {
 		_, msg, err := connSocket.ReadMessage()
@@ -51,8 +38,7 @@ func receiveHandler() {
 		switch wsMessage.Action {
 		case "ClientWelcoming":
 			fmt.Println("Server message: " + wsMessage.Message)
-			BeginPairWork(assignedPair)
-			startCronJobs(assignedPair)
+			BeginPairWork(strPair, connSocket)
 		case "ClientConnected":
 			fmt.Println("Client connected to server: " + wsMessage.Message)
 		case "ClientDisconnected":
@@ -60,34 +46,41 @@ func receiveHandler() {
 		case "ClientError":
 			fmt.Println("Received Error from server: " + wsMessage.Message)
 		case "tickVerification":
-			PairVerificationTick(wsMessage, assignedPair)
+			PairVerificationTick(wsMessage, strPair, connSocket)
 		case "TerminateClient":
 			//TODO terminate here
 			fmt.Println("Server has indicated a termination of the client")
-			stopCronJobs()
 
 			//TODO somehow close the runtime
 		}
 	}
 }
 
-func ConnectToServer(strPair string) {
-	assignedPair = strPair
+func ConnectToServer(strPair string, done chan interface{}, interrupt chan os.Signal) {
+	//done = make(chan interface{})    // Channel to indicate that the receiverHandler is done
+	//interrupt = make(chan os.Signal) // Channel to listen for interrupt signal to terminate gracefully
 
-	done = make(chan interface{})    // Channel to indicate that the receiverHandler is done
-	interrupt = make(chan os.Signal) // Channel to listen for interrupt signal to terminate gracefully
+	var cronTicker *cron.Cron = krakenLib.GenerateCronOHLC(strPair)
+	var cronOHLC *cron.Cron = krakenLib.GenerateCronTicker(strPair)
+	var cronTrades *cron.Cron = krakenLib.GenerateCronTrades(strPair)
+	var cronOrders *cron.Cron = krakenLib.GenerateCronOrders(strPair)
+
+	cronOHLC.Start()
+	cronTicker.Start()
+	cronTrades.Start()
+	cronOrders.Start()
 
 	signal.Notify(interrupt, os.Interrupt) // Notify the interrupt channel for SIGINT
 
 	socketUrl := "ws://192.168.0.13:8081" + "/"
-	connSocket, _, errDial = websocket.DefaultDialer.Dial(socketUrl, nil)
+	connSocket, _, errDial := websocket.DefaultDialer.Dial(socketUrl, nil)
 	if errDial != nil {
 		log.Fatal("Error connecting to Websocket Server:", errDial)
 	}
 
 	defer connSocket.Close()
 
-	go receiveHandler()
+	go receiveHandler(strPair, done, connSocket)
 
 	for {
 		select {
@@ -97,6 +90,12 @@ func ConnectToServer(strPair string) {
 			log.Println("Received SIGINT interrupt signal. Closing all pending connections")
 			//UnbindPair()
 			//disconnectFromRedis()
+			cronTicker.Stop()
+			cronOHLC.Stop()
+			cronTrades.Stop()
+			cronOrders.Stop()
+
+			os.Exit(1)
 
 			// Close our websocket connection
 			err := connSocket.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, "Client shutting down..."))
@@ -114,23 +113,4 @@ func ConnectToServer(strPair string) {
 			return
 		}
 	}
-}
-
-func startCronJobs(pairName string) {
-	cronOHLC = krakenLib.GenerateCronOHLC(pairName)
-	cronTicker = krakenLib.GenerateCronTicker(pairName)
-	cronTrades = krakenLib.GenerateCronTrades(pairName)
-	cronOrders = krakenLib.GenerateCronOrders(pairName)
-
-	cronOHLC.Start()
-	cronTicker.Start()
-	cronTrades.Start()
-	cronOrders.Start()
-}
-
-func stopCronJobs() {
-	cronTicker.Stop()
-	cronOHLC.Stop()
-	cronTrades.Stop()
-	cronOrders.Stop()
 }

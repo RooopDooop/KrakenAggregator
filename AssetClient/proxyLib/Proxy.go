@@ -38,5 +38,4 @@ func RequestProxy() {
 	}
 
 	os.Setenv("HTTP_PROXY", "http://"+proxyInfo.IP+":"+proxyInfo.Port)
-	fmt.Println("Proxy delivered: " + proxyInfo.IP + ":" + proxyInfo.Port)
 }

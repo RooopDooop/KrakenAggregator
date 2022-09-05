@@ -6,8 +6,10 @@ import redis.clients.jedis.Jedis;
 
 import java.net.InetSocketAddress;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 public class websocketRouting extends WebSocketServer {
     //HashMap<WebSocket, websocketClient> listClientConnections = new HashMap<>();
@@ -62,8 +64,6 @@ public class websocketRouting extends WebSocketServer {
         switch (objReceived.returnAction()) {
             case "BeginPairWork": {
                 //TODO assign pair client
-                System.out.println(conn.getRemoteSocketAddress() + " is working on: " + objReceived.returnMessage());
-                System.out.println(objReceived.returnMessage());
                 this.listAssetPairs.get(objReceived.returnMessage()).associateClient(conn);
             }
             case "tickVerifyResponse": {
@@ -115,16 +115,9 @@ public class websocketRouting extends WebSocketServer {
     public void onStart() {
         System.out.println("Started websocket server");
 
-        int test = 0;
-        for (AssetPair asset : listAssetPairs.values()) {
-            if (asset.returnClient() == null) {
-                test++;
+        spinUpClientsThread threadClients = new spinUpClientsThread();
+        threadClients.start();
 
-                if (test < 275) {
-                    asset.generateClient();
-                }
-            }
-        }
     }
 
     private void disconnectClient(WebSocket conn) {
@@ -169,5 +162,48 @@ public class websocketRouting extends WebSocketServer {
         //}
 
         return listNotAssigned;
+    }
+
+    class spinUpClientsThread extends Thread {
+        @Override
+        public void run() {
+            Set<StringBuilder> setClients = new HashSet<StringBuilder>();
+            StringBuilder currentClient = new StringBuilder();
+
+            for (AssetPair asset : listAssetPairs.values()) {
+                if (asset.returnClient() == null) {
+                    if (currentClient.toString().split(",").length < 5) {
+                        if (currentClient.toString().equals("")) {
+                            currentClient = new StringBuilder(asset.returnPair());
+                        } else {
+                            currentClient.append(",").append(asset.returnPair());
+                        }
+                    } else {
+                        setClients.add(currentClient);
+                        currentClient = new StringBuilder();
+                    }
+
+                        /*try {
+                            asset.generateClient();
+                            System.out.println("Spinning up docker client: " + asset.returnPair());
+
+                            TimeUnit.MILLISECONDS.sleep(750);
+                        } catch(InterruptedException ex) {
+                            System.out.println(ex);
+                        }*/
+                }
+            }
+
+            for (StringBuilder strClient : setClients) {
+                //asset.generateClient();
+                System.out.println("Spinning up docker client: " + strClient);
+
+                try {
+                    Process process = Runtime.getRuntime().exec("docker run --net krakenNetwork -e PAIR_ENV=" + strClient.toString() + " watchmejump/krakenpredictor/assetclient:0.0.3");
+                } catch (Exception ex) {
+                    System.out.println(ex);
+                }
+            }
+        }
     }
 }
