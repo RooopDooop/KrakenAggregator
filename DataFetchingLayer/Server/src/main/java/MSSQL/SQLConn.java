@@ -16,7 +16,7 @@ public class SQLConn {
     public static Connection getSQL() {
         if (SQLConnection == null) {
             try  {
-                SQLConnection = DriverManager.getConnection("jdbc:sqlserver://192.168.0.20:1433; database=KrakenDB; user=sa; password=REMOVED; encrypt=false; trustServerCertificate=false; loginTimeout=30;");
+                SQLConnection = DriverManager.getConnection("jdbc:sqlserver://localhost:1433; database=KrakenDB; user=sa; password=REMOVED; encrypt=false; trustServerCertificate=false; loginTimeout=30;");
                 System.out.println("Connected to DB!");
             } catch (SQLException e) {
                 e.printStackTrace();
@@ -75,5 +75,13 @@ public class SQLConn {
         }
 
         return mapTupleValues;
+    }
+
+    public void insertPairs(String JSONData) throws SQLException {
+        getSQL().createStatement().execute("EXEC insertPair @JSONData = '" + JSONData + "'");
+    }
+
+    public void updatePairs(String JSONData) throws SQLException {
+        getSQL().createStatement().execute("EXEC updatePair @JSONData = '" + JSONData + "'");
     }
 }
