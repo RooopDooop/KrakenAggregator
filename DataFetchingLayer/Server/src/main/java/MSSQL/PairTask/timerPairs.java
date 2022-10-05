@@ -1,13 +1,11 @@
 package MSSQL.PairTask;
+import MSSQL.AssetTask.Asset;
 import MSSQL.SQLConn;
-import MSSQL.listPair.AssetPair;
 import com.google.gson.Gson;
-import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonPrimitive;
-import com.google.gson.internal.LinkedTreeMap;
 import org.javatuples.Octet;
-import org.javatuples.Septet;
+import org.javatuples.Pair;
+import org.javatuples.Triplet;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -15,28 +13,26 @@ import java.io.InputStreamReader;
 import java.math.BigDecimal;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.sql.Array;
 import java.sql.SQLException;
 import java.util.*;
 
 public class timerPairs extends TimerTask {
     @Override
     public void run() {
-        System.out.println("Running pair timer task");
+        System.out.println("=========================Running Pair Task=========================");
 
-        Map<String, Octet<String, Integer, Integer, Integer, Integer, Integer, Integer, BigDecimal>> sqlValues = new HashMap<>();
-        Map<String, Integer> sqlAssets = new HashMap<>();
+        Map<String, Octet<String, Integer, Integer, Integer, Integer, Integer, Integer, BigDecimal>> sqlPairs = new HashMap<>();
 
         StringBuilder JSONInsert = new StringBuilder().append("[");
         StringBuilder JSONUpdate = new StringBuilder().append("[");
 
-        try {
-            sqlValues = new SQLConn().fetchPairs();
-        } catch(Exception e) {
-            e.printStackTrace();
-        }
+        ArrayList<Fee> hashFees = new ArrayList<>();
+        Map<Integer, ArrayList<Integer>> hashLeverageBuy = new HashMap<>();
+        Map<Integer, ArrayList<Integer>> hashLeverageSell = new HashMap<>();
 
         try {
-            sqlAssets = new SQLConn().fetchAllAssets();
+            sqlPairs = new SQLConn().fetchPairs();
         } catch(Exception e) {
             e.printStackTrace();
         }
@@ -60,40 +56,48 @@ public class timerPairs extends TimerTask {
                 JsonObject arrKrakenData = new Gson().fromJson(output, JsonObject.class);
                 Map<String, Map> objKrakenData = new Gson().fromJson(arrKrakenData.get("result"), Map.class);
 
-                //TODO add two arrays, one for update, one for add.
-
                 for (Map mapPairs : objKrakenData.values()) {
-                    if (sqlValues.get(mapPairs.get("altname")) == null) {
+                    if (sqlPairs.get(mapPairs.get("altname").toString()) == null) {
                         String[] wsNames = mapPairs.get("wsname").toString().split("/");
-                        //System.out.println(mapPairs.get("altname") + " - BaseID: " + sqlAssets.get(wsNames[0]) + ", QuoteID: " + sqlAssets.get(wsNames[1]) + " - Is missing from SQL, Inserting");
 
-                        if (JSONInsert.toString().equals("[")) {
-                            JSONInsert = new StringBuilder("[{\"AlternativePairName\": \"" + mapPairs.get("altname") +
-                                    "\", \"WebsocketPairName\": \"" + mapPairs.get("wsname") +
-                                    "\", \"BaseID\": " + sqlAssets.get(wsNames[0]) +
-                                    ", \"QuoteID\": " + sqlAssets.get(wsNames[1]) +
-                                    ", \"PairDecimals\": " + (int)Double.parseDouble(mapPairs.get("pair_decimals").toString()) +
-                                    ", \"LotDecimals\": " + (int)Double.parseDouble(mapPairs.get("lot_decimals").toString()) +
-                                    ", \"LotMultiplier\": " + (int)Double.parseDouble(mapPairs.get("lot_multiplier").toString()) +
-                                    ", \"FeeCurrency\": " + sqlAssets.get("USD") +
-                                    ", \"MarginCall\": " + (int)Double.parseDouble(mapPairs.get("margin_call").toString()) +
-                                    ", \"MarginStop\": " + (int)Double.parseDouble(mapPairs.get("margin_stop").toString()) +
-                                    ", \"OrderMinimum\": " + mapPairs.get("ordermin") + "}");
-                        } else {
-                            JSONInsert.append(", {\"AlternativePairName\": \"" + mapPairs.get("altname") +
-                                    "\", \"WebsocketPairName\": \"" + mapPairs.get("wsname") +
-                                    "\", \"BaseID\": " + sqlAssets.get(wsNames[0]) +
-                                    ", \"QuoteID\": " + sqlAssets.get(wsNames[1]) +
-                                    ", \"PairDecimals\": " + (int)Double.parseDouble(mapPairs.get("pair_decimals").toString()) +
-                                    ", \"LotDecimals\": " + (int)Double.parseDouble(mapPairs.get("lot_decimals").toString()) +
-                                    ", \"LotMultiplier\": " + (int)Double.parseDouble(mapPairs.get("lot_multiplier").toString()) +
-                                    ", \"FeeCurrency\": " + sqlAssets.get("USD") +
-                                    ", \"MarginCall\": " + (int)Double.parseDouble(mapPairs.get("margin_call").toString()) +
-                                    ", \"MarginStop\": " + (int)Double.parseDouble(mapPairs.get("margin_stop").toString()) +
-                                    ", \"OrderMinimum\": " + mapPairs.get("ordermin") + "}");
+                        try {
+                            int BaseID = new SQLConn().fetchAssetID(wsNames[0]);
+                            int QuoteID = new SQLConn().fetchAssetID(wsNames[1]);
+                            int CurrencyID = new SQLConn().fetchAssetID("USD");
+
+                            System.out.println(BaseID + " - " + QuoteID + " : " + CurrencyID);
+
+                            if (JSONInsert.toString().equals("[")) {
+                                //TODO, need to check the websocket names
+                                JSONInsert = new StringBuilder("[{\"AlternativePairName\": \"" + mapPairs.get("altname") +
+                                        "\", \"WebsocketPairName\": \"" + mapPairs.get("wsname") +
+                                        "\", \"BaseID\": " + BaseID +
+                                        ", \"QuoteID\": " + QuoteID +
+                                        ", \"PairDecimals\": " + (int)Double.parseDouble(mapPairs.get("pair_decimals").toString()) +
+                                        ", \"LotDecimals\": " + (int)Double.parseDouble(mapPairs.get("lot_decimals").toString()) +
+                                        ", \"LotMultiplier\": " + (int)Double.parseDouble(mapPairs.get("lot_multiplier").toString()) +
+                                        ", \"FeeCurrency\": " + CurrencyID +
+                                        ", \"MarginCall\": " + (int)Double.parseDouble(mapPairs.get("margin_call").toString()) +
+                                        ", \"MarginStop\": " + (int)Double.parseDouble(mapPairs.get("margin_stop").toString()) +
+                                        ", \"OrderMinimum\": " + mapPairs.get("ordermin") + "}");
+                            } else {
+                                JSONInsert.append(", {\"AlternativePairName\": \"" + mapPairs.get("altname") +
+                                        "\", \"WebsocketPairName\": \"" + mapPairs.get("wsname") +
+                                        "\", \"BaseID\": " + BaseID +
+                                        ", \"QuoteID\": " + QuoteID +
+                                        ", \"PairDecimals\": " + (int)Double.parseDouble(mapPairs.get("pair_decimals").toString()) +
+                                        ", \"LotDecimals\": " + (int)Double.parseDouble(mapPairs.get("lot_decimals").toString()) +
+                                        ", \"LotMultiplier\": " + (int)Double.parseDouble(mapPairs.get("lot_multiplier").toString()) +
+                                        ", \"FeeCurrency\": " + CurrencyID +
+                                        ", \"MarginCall\": " + (int)Double.parseDouble(mapPairs.get("margin_call").toString()) +
+                                        ", \"MarginStop\": " + (int)Double.parseDouble(mapPairs.get("margin_stop").toString()) +
+                                        ", \"OrderMinimum\": " + mapPairs.get("ordermin") + "}");
+                            }
+                        } catch (SQLException e) {
+                            e.printStackTrace();
                         }
                     } else {
-                        Octet<String, Integer, Integer, Integer, Integer, Integer, Integer, BigDecimal> objSQL = sqlValues.get(mapPairs.get("altname"));
+                        Octet<String, Integer, Integer, Integer, Integer, Integer, Integer, BigDecimal> objSQL = sqlPairs.get(mapPairs.get("altname").toString());
 
                         int PairDecimals = objSQL.getValue2();
                         int LotDecimals = objSQL.getValue3();
@@ -103,9 +107,6 @@ public class timerPairs extends TimerTask {
                         BigDecimal OrderMinimum = new BigDecimal(objSQL.getValue7().toString()).stripTrailingZeros();
 
                         if (PairDecimals != (double)mapPairs.get("pair_decimals") || LotDecimals != (double)mapPairs.get("lot_decimals") || LotMultiplier != (double)mapPairs.get("lot_multiplier") || MarginCall != (double)mapPairs.get("margin_call") || MarginStop != (double)mapPairs.get("margin_stop") || !OrderMinimum.toPlainString().equals(mapPairs.get("ordermin"))) {
-                            String[] wsNames = mapPairs.get("wsname").toString().split("/");
-                            //System.out.println(mapPairs.get("altname") + " - BaseID: " + sqlAssets.get(wsNames[0]) + ", QuoteID: " + sqlAssets.get(wsNames[1]) + " - Needs to be updated");
-
                             if (JSONUpdate.toString().equals("[")) {
                                 JSONUpdate = new StringBuilder("[{\"AlternativePairName\": \"" + mapPairs.get("altname") +
                                         "\", \"PairDecimals\": " + (int)Double.parseDouble(mapPairs.get("pair_decimals").toString()) +
@@ -123,6 +124,50 @@ public class timerPairs extends TimerTask {
                                         ", \"MarginStop\": " + (int)Double.parseDouble(mapPairs.get("margin_stop").toString()) +
                                         ", \"OrderMinimum\": " + mapPairs.get("ordermin") + "}");
                             }
+                        }
+                    }
+
+                    try {
+                        Integer PairID = new SQLConn().fetchPairID(mapPairs.get("altname").toString());
+
+                        ArrayList<ArrayList> tempFees = (ArrayList<ArrayList>)mapPairs.get("fees");
+                        for (int p = 0; p < tempFees.size(); p++) {
+                            Fee objFee = new Fee(
+                                    PairID,
+                                    "Standard",
+                                    (int)Double.parseDouble(tempFees.get(p).get(0).toString()),
+                                    new BigDecimal(tempFees.get(p).get(1).toString())
+                            );
+
+                            hashFees.add(objFee);
+                        }
+
+
+                        ArrayList<ArrayList> tempFeesMaker = (ArrayList<ArrayList>)mapPairs.get("fees_maker");
+                        for (int p = 0; p < tempFeesMaker.size(); p++) {
+                            Fee objFee = new Fee(
+                                    PairID,
+                                    "Maker",
+                                    (int)Double.parseDouble(tempFees.get(p).get(0).toString()),
+                                    new BigDecimal(tempFees.get(p).get(1).toString())
+                            );
+
+                            hashFees.add(objFee);
+                            ArrayList<Integer> tempLeverageBuy = (ArrayList<Integer>)mapPairs.get("leverage_buy");
+                            if (tempLeverageBuy.size() > 0) {
+                                hashLeverageBuy.put(PairID, tempLeverageBuy);
+                            }
+
+                            ArrayList<Integer> tempLeverageSell = (ArrayList<Integer>)mapPairs.get("leverage_sell");
+                            if (tempLeverageSell.size() > 0) {
+                                hashLeverageSell.put(PairID, tempLeverageSell);
+                            }
+                        }
+                    } catch (SQLException e) {
+                        if (e.getMessage().equals("The result set has no current row.")) {
+                            System.out.println("PairID for: " + mapPairs.get("altname") + " - Was not found, skipping pair fee/leverage inserts");
+                        } else {
+                            e.printStackTrace();
                         }
                     }
                 }
@@ -149,9 +194,60 @@ public class timerPairs extends TimerTask {
                         e.printStackTrace();
                     }
                 }
+
+                processFees(hashFees);
+                processLeverages(hashLeverageBuy, false);
+                processLeverages(hashLeverageSell, true);
             }
         } catch (IOException e) {
             throw new RuntimeException(e);
+        }
+    }
+
+    private void processFees(ArrayList<Fee> Fees) {
+        try {
+            ArrayList<Fee> insertFees = new ArrayList<>();
+            ArrayList<Fee> updateFees = new ArrayList<>();
+            Map<Integer, Fee> sqlFees = new SQLConn().fetchFees();
+
+            for (Fee objFee : Fees) {
+                boolean foundFee = false;
+
+                for (Fee objSQLFees : sqlFees.values()) {
+                    if (objFee.GetPairID() == objSQLFees.GetPairID() && objFee.GetVolume() == objSQLFees.GetVolume() && objFee.GetFeeType().equals(objSQLFees.GetFeeType())) {
+
+
+                        if (!objFee.GetPercentCost().stripTrailingZeros().equals(objSQLFees.GetPercentCost().stripTrailingZeros())) {
+                            updateFees.add(objFee);
+                            break;
+                        }
+
+                        foundFee = true;
+                        break;
+                    }
+                }
+
+                if (!foundFee) {
+                    insertFees.add(objFee);
+                }
+            }
+
+            new SQLConn().insertFees(new Gson().toJson(insertFees));
+            new SQLConn().updateFees(new Gson().toJson(updateFees));
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void processLeverages(Map<Integer, ArrayList<Integer>> Leverages, Boolean IsSell) {
+        try {
+            if (IsSell) {
+                new SQLConn().insertLeverages(new Gson().toJson(Leverages), "Sell");
+            } else {
+                new SQLConn().insertLeverages(new Gson().toJson(Leverages), "Buy");
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
         }
     }
 }

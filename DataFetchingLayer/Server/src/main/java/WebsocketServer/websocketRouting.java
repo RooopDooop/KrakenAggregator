@@ -1,7 +1,5 @@
 package WebsocketServer;
 
-import MSSQL.listPair.AssetPair;
-import MSSQL.listPair.listPair;
 import com.google.gson.Gson;
 import org.java_websocket.WebSocket;
 import org.java_websocket.handshake.ClientHandshake;
