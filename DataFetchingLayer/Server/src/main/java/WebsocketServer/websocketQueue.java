@@ -1,19 +1,26 @@
 package WebsocketServer;
 
-import MSSQL.listPair.AssetPair;
-import MSSQL.listPair.listPair;
+import MSSQL.SQLConn;
 import org.java_websocket.WebSocket;
+import org.javatuples.Octet;
 
+import java.math.BigDecimal;
+import java.sql.SQLException;
 import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingDeque;
 
 public class websocketQueue extends Thread {
-    HashMap<WebSocket, websocketClient> listClientConnections = new HashMap<>();
-    private final BlockingQueue<wsMessage> messageQueue = new LinkedBlockingDeque<>();
+    BlockingQueue<wsMessage> messageQueue = new LinkedBlockingDeque<>();
+    private final HashMap<WebSocket, websocketClient> listClientConnections = new HashMap<>();
+    RESTQueue objJobQueue = new RESTQueue();
+    //private final RESTQueue objRESTQueue = new RESTQueue();
 
     @Override
     public void run() {
+        objJobQueue.start();
+
         while (true) {
             try {
                 ProcessMessage(messageQueue.take());
@@ -41,8 +48,14 @@ public class websocketQueue extends Thread {
     }
 
     public void RemoveClient(WebSocket conn) {
-        listClientConnections.remove(conn);
-        distributePairs();
+        try {
+            listClientConnections.remove(conn);
+            AddMessage(conn, "ClientDisconnected", "N/A");
+            distributePairs();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
     }
 
     private void ProcessMessage(wsMessage objMessage) {
@@ -58,24 +71,41 @@ public class websocketQueue extends Thread {
                 System.out.println("Allocating Pairs to: " + objMessage.returnConn().getRemoteSocketAddress());
                 objMessage.returnConn().send(objMessage.returnJSON());
             }
+            case "ClientDisconnected" -> {
+                System.out.println("Client disconnected: " + objMessage.returnConn().getRemoteSocketAddress());
+            }
+            case "ScheduleTrade" -> {
+                try {
+                    this.objJobQueue.AddJob(objMessage);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
         }
     }
 
     private void distributePairs() {
+        this.objJobQueue.ClearJobs();
+
         if (this.listClientConnections.size() > 0) {
             HashMap<Integer, String> clientAssignment = new HashMap<>();
-            Object[] hashArray = new listPair().getSQLPairs().values().toArray();
+            Map<String, Octet<String, Integer, Integer, Integer, Integer, Integer, Integer, BigDecimal>> mapTupleValues = new HashMap<>();
+            try {
+                mapTupleValues = new SQLConn().fetchPairs();
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
 
+            //TODO re-write this using proper class
             int latestInput = 0;
-            for (Object objPair : hashArray) {
+            for (Octet<String, Integer, Integer, Integer, Integer, Integer, Integer, BigDecimal> tupleValues : mapTupleValues.values()) {
                 if (clientAssignment.get(latestInput) == null) {
-                    clientAssignment.put(latestInput, ((AssetPair) objPair).getAlternativeName());
+                    clientAssignment.put(latestInput, tupleValues.getValue0());
                 } else {
-                    clientAssignment.put(latestInput, clientAssignment.get(latestInput) + ", " + ((AssetPair) objPair).getAlternativeName());
+                    clientAssignment.put(latestInput, clientAssignment.get(latestInput) + ", " + tupleValues.getValue0());
                 }
 
                 latestInput++;
-
                 if (latestInput > (listClientConnections.size() - 1)) {
                     latestInput = 0;
                 }
@@ -90,6 +120,8 @@ public class websocketQueue extends Thread {
                     e.printStackTrace();
                 }
             }
+        } else {
+            System.out.println("All clients have disconnected");
         }
     }
 }

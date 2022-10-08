@@ -12,9 +12,11 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingDeque;
 
 public class websocketRouting extends WebSocketServer {
-    websocketQueue objQueue = new websocketQueue();
+    websocketQueue objWSQueue = new websocketQueue();
 
     //Redis object
     //Is this necessary?
@@ -22,19 +24,19 @@ public class websocketRouting extends WebSocketServer {
 
     public websocketRouting(InetSocketAddress address) {
         super(address);
-        objQueue.start();
+        objWSQueue.start();
     }
 
     @Override
     public void onOpen(WebSocket conn, ClientHandshake handshake) {
-        objQueue.AddClient(conn);
+        objWSQueue.AddClient(conn);
     }
 
     @Override
     public void onClose(WebSocket conn, int code, String reason, boolean remote) {
         //Once a connection is lost, just redistribute pairs to the remaining clients.
         //This is faster and less complicated than checking all the clients to see if they still have their pairs
-        objQueue.RemoveClient(conn);
+        objWSQueue.RemoveClient(conn);
     }
 
     @Override
@@ -42,7 +44,7 @@ public class websocketRouting extends WebSocketServer {
         //TODO on message received, push to the queue where it will be handled
         try {
             wsMessage objReceived = new Gson().fromJson(message, wsMessage.class);
-            objQueue.AddMessage(conn, objReceived.returnAction(), objReceived.returnMessage());
+            objWSQueue.AddMessage(conn, objReceived.returnAction(), objReceived.returnMessage());
         } catch (Exception e) {
             e.printStackTrace();
         }

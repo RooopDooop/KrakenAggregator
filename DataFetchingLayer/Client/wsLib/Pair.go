@@ -8,7 +8,7 @@ import (
 )
 
 func RequestPairs(connSocket *websocket.Conn) {
-	var jsonMessage websocketCall = websocketCall{
+	var jsonMessage WebsocketCall = WebsocketCall{
 		MessageID: 0,
 		Action:    "RequestingPairs",
 		TimeSent:  time.Now().Unix(),

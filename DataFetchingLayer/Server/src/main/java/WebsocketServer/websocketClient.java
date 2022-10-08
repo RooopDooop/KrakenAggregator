@@ -1,11 +1,6 @@
 package WebsocketServer;
 
-import MSSQL.listPair.AssetPair;
 import org.java_websocket.WebSocket;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Timer;
 import java.util.TimerTask;
 
 public class websocketClient {
@@ -16,9 +11,9 @@ public class websocketClient {
     //UnassignPairClient
 
     WebSocket clientConn;
-    private TimerTask timerTask = new tickValidity();
+    //private TimerTask timerTask = new tickValidity();
 
-    private List<AssetPair> AssignedPairs = new ArrayList<>();
+    //private List<AssetPair> AssignedPairs = new ArrayList<>();
 
     //AssetPair assignedAssetPair;
     //TimerTask timerTask = new tickValidity();
@@ -27,7 +22,7 @@ public class websocketClient {
 
     public websocketClient(WebSocket conn) {
         this.clientConn = conn;
-        new Timer().scheduleAtFixedRate(timerTask, 0, 5000);
+        //new Timer().scheduleAtFixedRate(timerTask, 0, 5000);
     }
 
     public void sendMessage(wsMessage desiredMessage) {
@@ -35,9 +30,9 @@ public class websocketClient {
         //this.listMessageHistory.put(desiredMessage.returnID(), desiredMessage);
     }
 
-    public void assignPair(AssetPair inputPair) {
+    /*public void assignPair(AssetPair inputPair) {
         this.AssignedPairs.add(inputPair);
-    }
+    }*/
 
     //public HashMap<Integer, WebsocketServer.wsMessage> returnMessageHistory() {
        // return this.listMessageHistory;
@@ -52,6 +47,6 @@ public class websocketClient {
 
     public void stopValidityCheck() {
         System.out.println("Stopping validity check");
-        this.timerTask.cancel();
+        //this.timerTask.cancel();
     }
 }

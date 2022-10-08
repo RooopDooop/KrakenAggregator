@@ -7,63 +7,18 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/robfig/cron/v3"
 )
 
-type websocketCall struct {
+type WebsocketCall struct {
 	MessageID int    `json:"MessageID"`
 	Action    string `json:"Action"`
 	TimeSent  int64  `json:"TimeSent"`
 	Message   string `json:"Message"`
-}
-
-func receiveHandler(done chan interface{}, connSocket *websocket.Conn) {
-	defer close(done)
-	for {
-		_, msg, err := connSocket.ReadMessage()
-		if err != nil {
-			log.Println("Error in receive:", err)
-			return
-		}
-
-		var wsMessage websocketCall
-		errWsMess := json.Unmarshal(msg, &wsMessage)
-		if errWsMess != nil {
-			panic(errWsMess)
-		}
-
-		switch wsMessage.Action {
-		case "ClientWelcoming":
-			fmt.Println("Successfully connected to server")
-			//RequestPairs(connSocket)
-			//BeginPairWork(strPair, connSocket)
-		case "AssignPairs":
-			//TODO re-assign pairs, just stop all CRON jobs and restart messages
-			fmt.Printf("======================================================================================")
-
-			for _, strPair := range strings.Split(wsMessage.Message, ", ") {
-				fmt.Println(strPair)
-			}
-
-			fmt.Printf("======================================================================================")
-
-			/*case "ClientConnected":
-				fmt.Println("Client connected to server: " + wsMessage.Message)
-			case "ClientDisconnected":
-				fmt.Println("Client disconnected from server: " + wsMessage.Message)
-			case "ClientError":
-				fmt.Println("Received Error from server: " + wsMessage.Message)
-			case "tickVerification":
-				//PairVerificationTick(wsMessage, strPair, connSocket)
-			case "TerminateClient":
-				//TODO terminate here
-				fmt.Println("Server has indicated a termination of the client")*/
-
-			//TODO somehow close the runtime
-		}
-	}
 }
 
 func StartWebsocket() {
@@ -108,4 +63,93 @@ func StartWebsocket() {
 			return
 		}
 	}
+}
+
+func receiveHandler(done chan interface{}, connSocket *websocket.Conn) {
+	defer close(done)
+	CRONScheduler := cron.New()
+
+	for {
+		_, msg, err := connSocket.ReadMessage()
+		if err != nil {
+			log.Println("Error in receive:", err)
+			return
+		}
+
+		var wsMessage WebsocketCall
+		errWsMess := json.Unmarshal(msg, &wsMessage)
+		if errWsMess != nil {
+			panic(errWsMess)
+		}
+
+		switch wsMessage.Action {
+		case "ClientWelcoming":
+			fmt.Println("Successfully connected to server")
+			//RequestPairs(connSocket)
+			//BeginPairWork(strPair, connSocket)
+		case "AssignPairs":
+			//TODO re-assign pairs, just stop all CRON jobs and restart messages
+
+			for _, job := range CRONScheduler.Entries() {
+				CRONScheduler.Remove(job.ID)
+			}
+
+			var socketSync sync.Mutex
+			for _, strPair := range strings.Split(wsMessage.Message, ", ") {
+				CRONPair := strPair
+				/*CRONScheduler.AddFunc("@every 15s", func() {
+					fmt.Println(strconv.Itoa(len(CRONScheduler.Entries())) + " - CRON JOB OHLC: " + CRONPair)
+				})
+
+				CRONScheduler.AddFunc("@every 10s", func() {
+					fmt.Println(strconv.Itoa(len(CRONScheduler.Entries())) + " - CRON JOB Ticker: " + CRONPair)
+				})*/
+
+				CRONScheduler.AddFunc("@every 10s", func() {
+					ScheduleTradeJob(connSocket, &socketSync, CRONPair)
+				})
+
+				/*CRONScheduler.AddFunc("@every 1s", func() {
+					fmt.Println(strconv.Itoa(len(CRONScheduler.Entries())) + " - CRON JOB Orders: " + CRONPair)
+				})*/
+			}
+
+			CRONScheduler.Start()
+
+			/*case "ClientConnected":
+				fmt.Println("Client connected to server: " + wsMessage.Message)
+			case "ClientDisconnected":
+				fmt.Println("Client disconnected from server: " + wsMessage.Message)
+			case "ClientError":
+				fmt.Println("Received Error from server: " + wsMessage.Message)
+			case "tickVerification":
+				//PairVerificationTick(wsMessage, strPair, connSocket)
+			case "TerminateClient":
+				//TODO terminate here
+				fmt.Println("Server has indicated a termination of the client")*/
+
+			//TODO somehow close the runtime
+		}
+	}
+}
+
+func ScheduleTradeJob(connSocket *websocket.Conn, socketSync *sync.Mutex, strPair string) {
+	var jsonMessage WebsocketCall = WebsocketCall{
+		MessageID: 0,
+		Action:    "ScheduleTrade",
+		TimeSent:  time.Now().Unix(),
+		Message:   "https://api.kraken.com/0/public/Trades?pair=" + strPair,
+	}
+
+	strJson, errMarsh := json.Marshal(jsonMessage)
+	if errMarsh != nil {
+		panic(errMarsh)
+	}
+
+	socketSync.Lock()
+	err := connSocket.WriteMessage(websocket.TextMessage, strJson)
+	if err != nil {
+		panic(err)
+	}
+	socketSync.Unlock()
 }

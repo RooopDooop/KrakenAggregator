@@ -6,13 +6,8 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"time"
 
 	"github.com/go-redis/redis"
-	"github.com/robfig/cron"
-
-	proxyLib "J.Morin/KrakenScraper/proxyLib"
-	redisLib "J.Morin/KrakenScraper/redisLib"
 )
 
 type TradeObject struct {
@@ -24,7 +19,7 @@ type TradeObject struct {
 	MarketOrLimit string `json:"MarketOrLimit"`
 }
 
-func GenerateCronTrades(strPair string) *cron.Cron {
+/*func GenerateCronTrades(strPair string) *cron.Cron {
 	go watchTrades(redisLib.ConnectToRedis(), strPair)
 
 	cronTrades := cron.New()
@@ -34,10 +29,10 @@ func GenerateCronTrades(strPair string) *cron.Cron {
 	})
 
 	return cronTrades
-}
+}*/
 
-func watchTrades(client *redis.Client, strPair string) {
-	proxyLib.RequestProxy()
+func WatchTrades(client *redis.Client, strPair string) {
+	//proxyLib.RequestProxy()
 
 	resp, err := http.Get("https://api.kraken.com/0/public/Trades?pair=" + strPair)
 	if err != nil {
@@ -81,5 +76,4 @@ func watchTrades(client *redis.Client, strPair string) {
 	}
 
 	fmt.Println("Inserted all trades: " + strPair)
-	redisLib.DisconnectFromRedis(client)
 }

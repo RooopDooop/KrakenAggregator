@@ -18,7 +18,7 @@ type proxyData struct {
 }
 
 func RequestProxy() {
-	response, err := http.Get("http://192.168.0.20:8080/randomProxy")
+	response, err := http.Get("http://localhost:7000/randomProxy")
 
 	if err != nil {
 		fmt.Print(err.Error())
