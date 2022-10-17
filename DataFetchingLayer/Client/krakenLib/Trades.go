@@ -6,7 +6,9 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"strings"
 
+	"J.Morin/KrakenScraper/redisLib"
 	"github.com/go-redis/redis"
 )
 
@@ -19,22 +21,10 @@ type TradeObject struct {
 	MarketOrLimit string `json:"MarketOrLimit"`
 }
 
-/*func GenerateCronTrades(strPair string) *cron.Cron {
-	go watchTrades(redisLib.ConnectToRedis(), strPair)
+func ProcessTrades(client *redis.Client, URL string) {
+	var PairName string = strings.Split(URL, "?pair=")[1]
 
-	cronTrades := cron.New()
-	cronTrades.AddFunc("@every 5m", func() {
-		fmt.Println("Executing Trade job at: " + time.Now().UTC().String())
-		watchTrades(redisLib.ConnectToRedis(), strPair)
-	})
-
-	return cronTrades
-}*/
-
-func WatchTrades(client *redis.Client, strPair string) {
-	//proxyLib.RequestProxy()
-
-	resp, err := http.Get("https://api.kraken.com/0/public/Trades?pair=" + strPair)
+	resp, err := http.Get(URL)
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -56,24 +46,25 @@ func WatchTrades(client *redis.Client, strPair string) {
 		for key, arrTrades := range response["result"].(map[string]interface{}) {
 			if key != "last" {
 				for _, objTrade := range arrTrades.([]interface{}) {
-					client.HSet("Trade:"+strPair+"#"+fmt.Sprintf("%f", objTrade.([]interface{})[2].(float64)), "Price", objTrade.([]interface{})[0].(string))
-					client.HSet("Trade:"+strPair+"#"+fmt.Sprintf("%f", objTrade.([]interface{})[2].(float64)), "Volume", objTrade.([]interface{})[1].(string))
+					client.HSet("Trade:"+PairName+"#"+fmt.Sprintf("%f", objTrade.([]interface{})[2].(float64)), "Price", objTrade.([]interface{})[0].(string))
+					client.HSet("Trade:"+PairName+"#"+fmt.Sprintf("%f", objTrade.([]interface{})[2].(float64)), "Volume", objTrade.([]interface{})[1].(string))
 
 					if objTrade.([]interface{})[3].(string) == "b" {
-						client.HSet("Trade:"+strPair+"#"+fmt.Sprintf("%f", objTrade.([]interface{})[2].(float64)), "BuyOrSell", "Buy")
+						client.HSet("Trade:"+PairName+"#"+fmt.Sprintf("%f", objTrade.([]interface{})[2].(float64)), "BuyOrSell", "Buy")
 					} else if objTrade.([]interface{})[3].(string) == "s" {
-						client.HSet("Trade:"+strPair+"#"+fmt.Sprintf("%f", objTrade.([]interface{})[2].(float64)), "BuyOrSell", "Sell")
+						client.HSet("Trade:"+PairName+"#"+fmt.Sprintf("%f", objTrade.([]interface{})[2].(float64)), "BuyOrSell", "Sell")
 					}
 
 					if objTrade.([]interface{})[4].(string) == "l" {
-						client.HSet("Trade:"+strPair+"#"+fmt.Sprintf("%f", objTrade.([]interface{})[2].(float64)), "MarketOrLimit", "Limit")
+						client.HSet("Trade:"+PairName+"#"+fmt.Sprintf("%f", objTrade.([]interface{})[2].(float64)), "MarketOrLimit", "Limit")
 					} else if objTrade.([]interface{})[4].(string) == "m" {
-						client.HSet("Trade:"+strPair+"#"+fmt.Sprintf("%f", objTrade.([]interface{})[2].(float64)), "MarketOrLimit", "Market")
+						client.HSet("Trade:"+PairName+"#"+fmt.Sprintf("%f", objTrade.([]interface{})[2].(float64)), "MarketOrLimit", "Market")
 					}
 				}
 			}
 		}
 	}
 
-	fmt.Println("Inserted all trades: " + strPair)
+	fmt.Println("Processed trade: " + PairName)
+	redisLib.DisconnectFromRedis(client)
 }

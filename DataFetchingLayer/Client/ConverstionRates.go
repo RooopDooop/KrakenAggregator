@@ -12,6 +12,8 @@ type FiatData struct {
 }
 
 func GetFiatExchange(client *redis.Client) {
+	//TODO reimplement this in the Java server
+
 	/*for _, strFiat := range fetchFiatAssets(client) {
 		var strFormatted string = strings.Split(strFiat, ":")[1]
 

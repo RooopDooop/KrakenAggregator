@@ -6,32 +6,17 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"time"
+	"strings"
 
-	proxyLib "J.Morin/KrakenScraper/proxyLib"
 	redisLib "J.Morin/KrakenScraper/redisLib"
 
 	"github.com/go-redis/redis"
-	"github.com/robfig/cron"
 )
 
-func GenerateCronOrders(strPair string) *cron.Cron {
-	go watchOrderBook(redisLib.ConnectToRedis(), strPair)
+func ProcessOrder(client *redis.Client, URL string) {
+	var PairName string = strings.Split(URL, "?pair=")[1]
 
-	cronOrders := cron.New()
-	cronOrders.AddFunc("@every 1m", func() {
-		fmt.Println("Executing Order job at: " + time.Now().UTC().String())
-		watchOrderBook(redisLib.ConnectToRedis(), strPair)
-	})
-
-	return cronOrders
-}
-
-func watchOrderBook(client *redis.Client, strPair string) {
-	fmt.Println("Processing Order Book: " + strPair)
-	proxyLib.RequestProxy()
-
-	resp, err := http.Get("https://api.kraken.com/0/public/Depth?pair=" + strPair)
+	resp, err := http.Get(URL)
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -55,15 +40,15 @@ func watchOrderBook(client *redis.Client, strPair string) {
 				if interfaceHeader == "bids" {
 					for _, objBid := range objBook.([]interface{}) {
 						var epoch string = fmt.Sprintf("%v", int(objBid.([]interface{})[2].(float64)))
-						client.HSet("OrderBid:"+strPair+"#"+epoch, "Price", objBid.([]interface{})[0])
-						client.HSet("OrderBid:"+strPair+"#"+epoch, "Volume", objBid.([]interface{})[1])
+						client.HSet("OrderBid:"+PairName+"#"+epoch+"#"+fmt.Sprint(objBid.([]interface{})[0])+"#"+fmt.Sprint(objBid.([]interface{})[1]), "Price", objBid.([]interface{})[0])
+						client.HSet("OrderBid:"+PairName+"#"+epoch+"#"+fmt.Sprint(objBid.([]interface{})[0])+"#"+fmt.Sprint(objBid.([]interface{})[1]), "Volume", objBid.([]interface{})[1])
 					}
 				} else if interfaceHeader == "asks" {
 					for _, objAsk := range objBook.([]interface{}) {
 						var epoch string = fmt.Sprintf("%v", int(objAsk.([]interface{})[2].(float64)))
 
-						client.HSet("OrderAsk:"+strPair+"#"+epoch, "Price", objAsk.([]interface{})[0])
-						client.HSet("OrderAsk:"+strPair+"#"+epoch, "Volume", objAsk.([]interface{})[1])
+						client.HSet("OrderAsk:"+PairName+"#"+epoch+"#"+fmt.Sprint(objAsk.([]interface{})[0])+"#"+fmt.Sprint(objAsk.([]interface{})[1]), "Price", objAsk.([]interface{})[0])
+						client.HSet("OrderAsk:"+PairName+"#"+epoch+"#"+fmt.Sprint(objAsk.([]interface{})[0])+"#"+fmt.Sprint(objAsk.([]interface{})[1]), "Volume", objAsk.([]interface{})[1])
 					}
 				}
 			}
@@ -71,6 +56,6 @@ func watchOrderBook(client *redis.Client, strPair string) {
 
 	}
 
-	fmt.Println("Order Book Inserts Completed: " + strPair)
+	fmt.Println("Order processed: " + PairName)
 	redisLib.DisconnectFromRedis(client)
 }

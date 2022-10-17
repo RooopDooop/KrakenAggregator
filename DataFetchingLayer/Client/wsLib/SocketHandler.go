@@ -12,6 +12,9 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/robfig/cron/v3"
+
+	krakenLib "J.Morin/KrakenScraper/krakenLib"
+	redisLib "J.Morin/KrakenScraper/redisLib"
 )
 
 type WebsocketCall struct {
@@ -40,11 +43,8 @@ func StartWebsocket() {
 	for {
 		select {
 		case <-interrupt:
-			//TODO disconnect from DB
 			// We received a SIGINT (Ctrl + C). Terminate gracefully...
 			log.Println("Received SIGINT interrupt signal. Closing all pending connections")
-			//UnbindPair()
-			//disconnectFromRedis()
 			os.Exit(1)
 
 			// Close our websocket connection
@@ -84,9 +84,7 @@ func receiveHandler(done chan interface{}, connSocket *websocket.Conn) {
 
 		switch wsMessage.Action {
 		case "ClientWelcoming":
-			fmt.Println("Successfully connected to server")
-			//RequestPairs(connSocket)
-			//BeginPairWork(strPair, connSocket)
+			fmt.Println("Successfully connected to server!")
 		case "AssignPairs":
 			//TODO re-assign pairs, just stop all CRON jobs and restart messages
 
@@ -97,48 +95,46 @@ func receiveHandler(done chan interface{}, connSocket *websocket.Conn) {
 			var socketSync sync.Mutex
 			for _, strPair := range strings.Split(wsMessage.Message, ", ") {
 				CRONPair := strPair
-				/*CRONScheduler.AddFunc("@every 15s", func() {
-					fmt.Println(strconv.Itoa(len(CRONScheduler.Entries())) + " - CRON JOB OHLC: " + CRONPair)
+				//OHLC every 10m
+				CRONScheduler.AddFunc("@every 10m", func() {
+					ScheduleJob(connSocket, &socketSync, "ScheduleOHLC", "https://api.kraken.com/0/public/OHLC?pair="+CRONPair)
 				})
 
-				CRONScheduler.AddFunc("@every 10s", func() {
-					fmt.Println(strconv.Itoa(len(CRONScheduler.Entries())) + " - CRON JOB Ticker: " + CRONPair)
-				})*/
-
-				CRONScheduler.AddFunc("@every 10s", func() {
-					ScheduleTradeJob(connSocket, &socketSync, CRONPair)
+				//Ticker every 1h
+				CRONScheduler.AddFunc("@every 1h", func() {
+					ScheduleJob(connSocket, &socketSync, "ScheduleTicker", "https://api.kraken.com/0/public/Ticker?pair="+CRONPair)
 				})
 
-				/*CRONScheduler.AddFunc("@every 1s", func() {
-					fmt.Println(strconv.Itoa(len(CRONScheduler.Entries())) + " - CRON JOB Orders: " + CRONPair)
-				})*/
+				//Trades every 5m
+				CRONScheduler.AddFunc("@every 5m", func() {
+					ScheduleJob(connSocket, &socketSync, "ScheduleTrade", "https://api.kraken.com/0/public/Trades?pair="+CRONPair)
+				})
+
+				//Orders every 1m
+				CRONScheduler.AddFunc("@every 2m", func() {
+					ScheduleJob(connSocket, &socketSync, "ScheduleOrder", "https://api.kraken.com/0/public/Depth?pair="+CRONPair)
+				})
 			}
 
 			CRONScheduler.Start()
-
-			/*case "ClientConnected":
-				fmt.Println("Client connected to server: " + wsMessage.Message)
-			case "ClientDisconnected":
-				fmt.Println("Client disconnected from server: " + wsMessage.Message)
-			case "ClientError":
-				fmt.Println("Received Error from server: " + wsMessage.Message)
-			case "tickVerification":
-				//PairVerificationTick(wsMessage, strPair, connSocket)
-			case "TerminateClient":
-				//TODO terminate here
-				fmt.Println("Server has indicated a termination of the client")*/
-
-			//TODO somehow close the runtime
+		case "ProcessTrade":
+			go krakenLib.ProcessTrades(redisLib.ConnectToRedis(), wsMessage.Message)
+		case "ProcessTicker":
+			go krakenLib.ProcessTicker(redisLib.ConnectToRedis(), wsMessage.Message)
+		case "ProcessOrder":
+			go krakenLib.ProcessOrder(redisLib.ConnectToRedis(), wsMessage.Message)
+		case "ProcessOHLC":
+			go krakenLib.ProcessOHLC(redisLib.ConnectToRedis(), wsMessage.Message)
 		}
 	}
 }
 
-func ScheduleTradeJob(connSocket *websocket.Conn, socketSync *sync.Mutex, strPair string) {
+func ScheduleJob(connSocket *websocket.Conn, socketSync *sync.Mutex, strAction string, URL string) {
 	var jsonMessage WebsocketCall = WebsocketCall{
 		MessageID: 0,
-		Action:    "ScheduleTrade",
+		Action:    strAction,
 		TimeSent:  time.Now().Unix(),
-		Message:   "https://api.kraken.com/0/public/Trades?pair=" + strPair,
+		Message:   URL,
 	}
 
 	strJson, errMarsh := json.Marshal(jsonMessage)
@@ -149,7 +145,7 @@ func ScheduleTradeJob(connSocket *websocket.Conn, socketSync *sync.Mutex, strPai
 	socketSync.Lock()
 	err := connSocket.WriteMessage(websocket.TextMessage, strJson)
 	if err != nil {
-		panic(err)
+		panic(err.Error())
 	}
 	socketSync.Unlock()
 }

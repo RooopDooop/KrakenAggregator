@@ -7,31 +7,18 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-redis/redis"
-	"github.com/robfig/cron"
 
-	proxyLib "J.Morin/KrakenScraper/proxyLib"
 	redisLib "J.Morin/KrakenScraper/redisLib"
 )
 
-func GenerateCronTicker(strPair string) *cron.Cron {
-	go watchTicker(redisLib.ConnectToRedis(), strPair)
+func ProcessTicker(client *redis.Client, URL string) {
+	var PairName string = strings.Split(URL, "?pair=")[1]
 
-	cronTicker := cron.New()
-	cronTicker.AddFunc("@every 1h", func() {
-		fmt.Println("Executing CRON job for {TICKER DATA} at: " + time.Now().UTC().String())
-		watchTicker(redisLib.ConnectToRedis(), strPair)
-	})
-
-	return cronTicker
-}
-
-func watchTicker(client *redis.Client, strPair string) {
-	proxyLib.RequestProxy()
-
-	resp, err := http.Get("https://api.kraken.com/0/public/Ticker?pair=" + strPair)
+	resp, err := http.Get(URL)
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -78,35 +65,35 @@ func watchTicker(client *redis.Client, strPair string) {
 
 		var todayOpeningPrice string = objResult.(map[string]interface{})["o"].(string)
 
-		client.HSet("Ticker:"+strPair+"#"+strconv.Itoa(int(time.Now().Unix())), "AskingPrice", aPrice)
-		client.HSet("Ticker:"+strPair+"#"+strconv.Itoa(int(time.Now().Unix())), "AskingWholeLotVolume", aWholeLotVolume)
-		client.HSet("Ticker:"+strPair+"#"+strconv.Itoa(int(time.Now().Unix())), "AskingLotVolume", aLotVolume)
+		client.HSet("Ticker:"+PairName+"#"+strconv.Itoa(int(time.Now().Unix())), "AskingPrice", aPrice)
+		client.HSet("Ticker:"+PairName+"#"+strconv.Itoa(int(time.Now().Unix())), "AskingWholeLotVolume", aWholeLotVolume)
+		client.HSet("Ticker:"+PairName+"#"+strconv.Itoa(int(time.Now().Unix())), "AskingLotVolume", aLotVolume)
 
-		client.HSet("Ticker:"+strPair+"#"+strconv.Itoa(int(time.Now().Unix())), "BidPrice", bPrice)
-		client.HSet("Ticker:"+strPair+"#"+strconv.Itoa(int(time.Now().Unix())), "BidWholeLotVolume", bWholeLotVolume)
-		client.HSet("Ticker:"+strPair+"#"+strconv.Itoa(int(time.Now().Unix())), "BidLotVolume", bLotVolume)
+		client.HSet("Ticker:"+PairName+"#"+strconv.Itoa(int(time.Now().Unix())), "BidPrice", bPrice)
+		client.HSet("Ticker:"+PairName+"#"+strconv.Itoa(int(time.Now().Unix())), "BidWholeLotVolume", bWholeLotVolume)
+		client.HSet("Ticker:"+PairName+"#"+strconv.Itoa(int(time.Now().Unix())), "BidLotVolume", bLotVolume)
 
-		client.HSet("Ticker:"+strPair+"#"+strconv.Itoa(int(time.Now().Unix())), "LatestTradePrice", lastTradePrice)
-		client.HSet("Ticker:"+strPair+"#"+strconv.Itoa(int(time.Now().Unix())), "TwentyFourLotVolume", lastTwentyFourLotVolume)
+		client.HSet("Ticker:"+PairName+"#"+strconv.Itoa(int(time.Now().Unix())), "LatestTradePrice", lastTradePrice)
+		client.HSet("Ticker:"+PairName+"#"+strconv.Itoa(int(time.Now().Unix())), "TwentyFourLotVolume", lastTwentyFourLotVolume)
 
-		client.HSet("Ticker:"+strPair+"#"+strconv.Itoa(int(time.Now().Unix())), "TodayTradeVolume", todayTradeVolume)
-		client.HSet("Ticker:"+strPair+"#"+strconv.Itoa(int(time.Now().Unix())), "TwentyFourTradeVolume", lasttwentyFourTradeVolume)
+		client.HSet("Ticker:"+PairName+"#"+strconv.Itoa(int(time.Now().Unix())), "TodayTradeVolume", todayTradeVolume)
+		client.HSet("Ticker:"+PairName+"#"+strconv.Itoa(int(time.Now().Unix())), "TwentyFourTradeVolume", lasttwentyFourTradeVolume)
 
-		client.HSet("Ticker:"+strPair+"#"+strconv.Itoa(int(time.Now().Unix())), "TodayWeightedAvgPrice", todayWeightedAvgPrice)
-		client.HSet("Ticker:"+strPair+"#"+strconv.Itoa(int(time.Now().Unix())), "TwentyFourWeightedAvgPrice", lasttwentyFourWeightedAvgPrice)
+		client.HSet("Ticker:"+PairName+"#"+strconv.Itoa(int(time.Now().Unix())), "TodayWeightedAvgPrice", todayWeightedAvgPrice)
+		client.HSet("Ticker:"+PairName+"#"+strconv.Itoa(int(time.Now().Unix())), "TwentyFourWeightedAvgPrice", lasttwentyFourWeightedAvgPrice)
 
-		client.HSet("Ticker:"+strPair+"#"+strconv.Itoa(int(time.Now().Unix())), "TodayTradeQuantity", todayTradeQuantity)
-		client.HSet("Ticker:"+strPair+"#"+strconv.Itoa(int(time.Now().Unix())), "TwentyFourTradeQuantity", lastTwentyFourTradeQuantity)
+		client.HSet("Ticker:"+PairName+"#"+strconv.Itoa(int(time.Now().Unix())), "TodayTradeQuantity", todayTradeQuantity)
+		client.HSet("Ticker:"+PairName+"#"+strconv.Itoa(int(time.Now().Unix())), "TwentyFourTradeQuantity", lastTwentyFourTradeQuantity)
 
-		client.HSet("Ticker:"+strPair+"#"+strconv.Itoa(int(time.Now().Unix())), "TodayLow", todayLow)
-		client.HSet("Ticker:"+strPair+"#"+strconv.Itoa(int(time.Now().Unix())), "TwentyFourLow", lasttwentyFourLow)
+		client.HSet("Ticker:"+PairName+"#"+strconv.Itoa(int(time.Now().Unix())), "TodayLow", todayLow)
+		client.HSet("Ticker:"+PairName+"#"+strconv.Itoa(int(time.Now().Unix())), "TwentyFourLow", lasttwentyFourLow)
 
-		client.HSet("Ticker:"+strPair+"#"+strconv.Itoa(int(time.Now().Unix())), "TodayHigh", todayHigh)
-		client.HSet("Ticker:"+strPair+"#"+strconv.Itoa(int(time.Now().Unix())), "TwentyFourHigh", lasttwentyFourHigh)
+		client.HSet("Ticker:"+PairName+"#"+strconv.Itoa(int(time.Now().Unix())), "TodayHigh", todayHigh)
+		client.HSet("Ticker:"+PairName+"#"+strconv.Itoa(int(time.Now().Unix())), "TwentyFourHigh", lasttwentyFourHigh)
 
-		client.HSet("Ticker:"+strPair+"#"+strconv.Itoa(int(time.Now().Unix())), "OpeningPrice", todayOpeningPrice)
+		client.HSet("Ticker:"+PairName+"#"+strconv.Itoa(int(time.Now().Unix())), "OpeningPrice", todayOpeningPrice)
 	}
 
-	fmt.Println("Ticker has been completed: " + strPair)
+	fmt.Println("Processed ticker: " + PairName)
 	redisLib.DisconnectFromRedis(client)
 }

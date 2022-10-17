@@ -34,7 +34,26 @@ public class SQLConn {
 
     public ArrayList<Asset> fetchAllAssets() throws SQLException {
         ArrayList<Asset> listSQLAssets = new ArrayList<>();
-        ResultSet resultSet = getSQL().createStatement().executeQuery(" EXEC dbo.new_fetchAssets");
+        ResultSet resultSet = getSQL().createStatement().executeQuery("EXEC dbo.new_fetchAssets");
+
+        while(resultSet.next()) {
+            Asset objAsset = new Asset(
+                    resultSet.getString("AlternativeName"),
+                    resultSet.getString("Class"),
+                    resultSet.getDouble("Decimals"),
+                    resultSet.getDouble("DisplayDecimals"),
+                    resultSet.getBigDecimal("CollateralValue")
+            );
+
+            listSQLAssets.add(objAsset);
+        }
+
+        return listSQLAssets;
+    }
+
+    public ArrayList<Asset> fetchAllFiatAssets() throws SQLException {
+        ArrayList<Asset> listSQLAssets = new ArrayList<>();
+        ResultSet resultSet = getSQL().createStatement().executeQuery("EXEC dbo.new_fetchFiatAssets");
 
         while(resultSet.next()) {
             Asset objAsset = new Asset(
@@ -104,37 +123,30 @@ public class SQLConn {
     }
 
     public void insertAssets(String JSONData) throws SQLException {
-        System.out.println("Inserting Assets");
         getSQL().createStatement().execute("EXEC new_insertAsset @JSONData = '" + JSONData + "'");
     }
 
     public void updateAssets(String JSONData) throws SQLException {
-        System.out.println("Updating Assets");
         getSQL().createStatement().execute("EXEC new_updateAsset @JSONData = '" + JSONData + "'");
     }
 
     public void insertPairs(String JSONData) throws SQLException {
-        System.out.println("Inserting Pairs");
         getSQL().createStatement().execute("EXEC insertPair @JSONData = '" + JSONData + "'");
     }
 
     public void updatePairs(String JSONData) throws SQLException {
-        System.out.println("Updating Pairs");
         getSQL().createStatement().execute("EXEC updatePair @JSONData = '" + JSONData + "'");
     }
 
     public void insertFees(String JSONData) throws SQLException {
-        System.out.println("Inserting Fees");
         getSQL().createStatement().execute("EXEC new_insertFees @JSONData = '" + JSONData + "'");
     }
 
     public void updateFees(String JSONData) throws SQLException {
-        System.out.println("Updating Fees");
         getSQL().createStatement().execute("EXEC new_updateFee @JSONData = '" + JSONData + "'");
     }
 
     public void insertLeverages(String JSONData, String LeverageType) throws SQLException {
-        System.out.println("Inserting " + LeverageType + " Leverages");
         getSQL().createStatement().execute("EXEC new_insertLeverages @JSONData = '" + JSONData + "', @LeverageType ='" + LeverageType + "'");
     }
 }

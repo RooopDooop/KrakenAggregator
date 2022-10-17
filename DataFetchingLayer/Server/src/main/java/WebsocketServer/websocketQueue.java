@@ -74,7 +74,7 @@ public class websocketQueue extends Thread {
             case "ClientDisconnected" -> {
                 System.out.println("Client disconnected: " + objMessage.returnConn().getRemoteSocketAddress());
             }
-            case "ScheduleTrade" -> {
+            case "ScheduleTrade", "ScheduleOrder", "ScheduleTicker", "ScheduleOHLC" -> {
                 try {
                     this.objJobQueue.AddJob(objMessage);
                 } catch (Exception e) {
@@ -121,6 +121,7 @@ public class websocketQueue extends Thread {
                 }
             }
         } else {
+            this.objJobQueue.ClearJobs();
             System.out.println("All clients have disconnected");
         }
     }

@@ -36,6 +36,8 @@ public class websocketRouting extends WebSocketServer {
     public void onClose(WebSocket conn, int code, String reason, boolean remote) {
         //Once a connection is lost, just redistribute pairs to the remaining clients.
         //This is faster and less complicated than checking all the clients to see if they still have their pairs
+        System.out.println(reason);
+
         objWSQueue.RemoveClient(conn);
     }
 

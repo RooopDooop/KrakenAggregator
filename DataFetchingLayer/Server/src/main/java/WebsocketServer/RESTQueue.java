@@ -1,6 +1,7 @@
 package WebsocketServer;
 
 import org.java_websocket.WebSocket;
+import org.java_websocket.exceptions.WebsocketNotConnectedException;
 
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingDeque;
@@ -14,7 +15,7 @@ public class RESTQueue extends Thread {
         while (true) {
             try {
                 ProcessJob(jobQueue.take());
-                Thread.sleep(200);
+                Thread.sleep(75);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
@@ -35,9 +36,22 @@ public class RESTQueue extends Thread {
     }
 
     private void ProcessJob(RESTJob objJob) {
+        String processType = "";
 
-        System.out.println(System.currentTimeMillis() - latestRunTime + " - Processed: " + objJob.returnConn().getRemoteSocketAddress() + " - Category: " + objJob.returnCategory() + " - URL: " + objJob.returnTargetURL());
+        switch (objJob.returnCategory()) {
+            case "ScheduleTrade" -> processType = "ProcessTrade";
+            case "ScheduleTicker" -> processType = "ProcessTicker";
+            case "ScheduleOHLC" -> processType = "ProcessOHLC";
+            case "ScheduleOrder" -> processType = "ProcessOrder";
+            default -> System.out.println("Unknown job type: " + objJob.returnCategory());
+        }
 
-        this.latestRunTime = System.currentTimeMillis();
+        wsMessage objMessage = new wsMessage(objJob.returnConn(), processType, objJob.returnTargetURL());
+        try {
+            objJob.returnConn().send(objMessage.returnJSON());
+            this.latestRunTime = System.currentTimeMillis();
+        } catch (WebsocketNotConnectedException e) {
+            System.out.println(objJob.returnConn().getRemoteSocketAddress() + " - has disconnected, ignoring work");
+        }
     }
 }
