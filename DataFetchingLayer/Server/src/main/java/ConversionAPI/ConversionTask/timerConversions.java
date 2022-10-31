@@ -1,20 +1,14 @@
-package MSSQL.ConversionTask;
+package ConversionAPI.ConversionTask;
 
-import MSSQL.AssetTask.Asset;
+import KrakenAPI.AssetTask.Objects.krakenAsset;
 import MSSQL.SQLConn;
-import com.google.gson.Gson;
-import com.google.gson.JsonObject;
-import com.google.gson.stream.JsonReader;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.io.StringReader;
-import java.math.BigDecimal;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
-import java.util.Map;
 import java.util.TimerTask;
 
 public class timerConversions extends TimerTask {
@@ -24,15 +18,15 @@ public class timerConversions extends TimerTask {
     public void run() {
         System.out.println("=========================Running Conversion Task=========================");
 
-        ArrayList<Asset> sqlAssets = new ArrayList<>();
+        ArrayList<krakenAsset> sqlAssets = new ArrayList<>();
 
-        try {
+        /*try {
             sqlAssets = new SQLConn().fetchAllFiatAssets();
         } catch(Exception e) {
             e.printStackTrace();
-        }
+        }*/
 
-        for (Asset objAsset : sqlAssets) {
+        for (krakenAsset objAsset : sqlAssets) {
             if (!objAsset.GetAlternativeName().equals("USD")) {
                 try {
                     URL url = new URL("https://api.apilayer.com/exchangerates_data/convert?to=USD&from=" + objAsset.GetAlternativeName() + "&amount=1");

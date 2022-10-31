@@ -1,14 +1,14 @@
-package MSSQL.PairTask;
+package KrakenAPI.AssetTask.Objects;
 
 import java.math.BigDecimal;
 
-public class Fee {
+public class krakenFee {
     private final int PairID;
     private final String FeeType;
     private final int Volume;
-    private final BigDecimal PercentCost;
+    private final double PercentCost;
 
-    public Fee(int PairID, String FeeType, int Volume, BigDecimal PercentCost) {
+    public krakenFee(int PairID, String FeeType, int Volume, double PercentCost) {
         this.PairID = PairID;
         this.FeeType = FeeType;
         this.Volume = Volume;
@@ -27,7 +27,7 @@ public class Fee {
         return Volume;
     }
 
-    public BigDecimal GetPercentCost() {
+    public double GetPercentCost() {
         return PercentCost;
     }
 }

@@ -1,11 +1,9 @@
 package MSSQL;
 
-import MSSQL.AssetTask.Asset;
-import MSSQL.PairTask.Fee;
-import org.javatuples.Octet;
-import java.math.BigDecimal;
+import MSSQL.Objects.sqlAsset;
+import MSSQL.Objects.sqlFees;
+import MSSQL.Objects.sqlPair;
 import java.sql.*;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -16,7 +14,7 @@ public class SQLConn {
     public static Connection getSQL() {
         if (SQLConnection == null) {
             try  {
-                SQLConnection = DriverManager.getConnection("jdbc:sqlserver://localhost:1433; database=KrakenDB; user=sa; password=REMOVED; encrypt=false; trustServerCertificate=false; loginTimeout=30;");
+                SQLConnection = DriverManager.getConnection("jdbc:sqlserver://192.168.1.120:1433; database=KrakenDB; user=sa; password=REMOVED; encrypt=false; trustServerCertificate=false; loginTimeout=30;");
                 System.out.println("Connected to DB!");
             } catch (SQLException e) {
                 e.printStackTrace();
@@ -26,127 +24,113 @@ public class SQLConn {
         return SQLConnection;
     }
 
-    public int fetchAssetID(String AlternativeName) throws SQLException {
-        ResultSet resultSet = getSQL().createStatement().executeQuery("EXEC new_selectAssetID @AlternativeName = '" + AlternativeName + "'");
-        resultSet.next();
-        return resultSet.getInt("AssetID");
-    }
-
-    public ArrayList<Asset> fetchAllAssets() throws SQLException {
-        ArrayList<Asset> listSQLAssets = new ArrayList<>();
-        ResultSet resultSet = getSQL().createStatement().executeQuery("EXEC dbo.new_fetchAssets");
+    public Map<String, sqlAsset> compareAllAssets(String arrAlternativeNames) throws SQLException {
+        ResultSet resultSet = getSQL().createStatement().executeQuery("EXEC GET_CompareAllAssets @AggregatedAlternatives = '" + arrAlternativeNames + "'");
+        Map<String, sqlAsset> returnValues = new HashMap<>();
 
         while(resultSet.next()) {
-            Asset objAsset = new Asset(
-                    resultSet.getString("AlternativeName"),
+            sqlAsset objAsset = new sqlAsset(
+                    resultSet.getInt("AssetID"),
                     resultSet.getString("Class"),
-                    resultSet.getDouble("Decimals"),
-                    resultSet.getDouble("DisplayDecimals"),
-                    resultSet.getBigDecimal("CollateralValue")
+                    resultSet.getString("AlternativeName"),
+                    resultSet.getInt("Decimals"),
+                    resultSet.getInt("DisplayDecimals"),
+                    resultSet.getBigDecimal("CollateralValue"),
+                    resultSet.getBoolean("FiatAsset")
             );
 
-            listSQLAssets.add(objAsset);
-        }
+            returnValues.put(objAsset.GetAlternativeName(), objAsset);
+        };
 
-        return listSQLAssets;
+        return returnValues;
     }
 
-    public ArrayList<Asset> fetchAllFiatAssets() throws SQLException {
-        ArrayList<Asset> listSQLAssets = new ArrayList<>();
-        ResultSet resultSet = getSQL().createStatement().executeQuery("EXEC dbo.new_fetchFiatAssets");
+    public Map<String, sqlPair> compareAllPairs(String arrAlternativeNames) throws SQLException {
+        ResultSet resultSet = getSQL().createStatement().executeQuery("EXEC GET_CompareAllPairs @AggregatedAlternatives = '" + arrAlternativeNames + "'");
+        Map<String, sqlPair> returnValues = new HashMap<>();
 
         while(resultSet.next()) {
-            Asset objAsset = new Asset(
-                    resultSet.getString("AlternativeName"),
-                    resultSet.getString("Class"),
-                    resultSet.getDouble("Decimals"),
-                    resultSet.getDouble("DisplayDecimals"),
-                    resultSet.getBigDecimal("CollateralValue")
-            );
-
-            listSQLAssets.add(objAsset);
-        }
-
-        return listSQLAssets;
-    }
-
-    public int fetchPairID(String AlternativePairName) throws SQLException {
-        ResultSet resultSet = getSQL().createStatement().executeQuery("EXEC new_selectPairID @AlternativeName = '" + AlternativePairName + "'");
-        resultSet.next();
-        return resultSet.getInt("PairID");
-    }
-
-    public int insertWSMessage(String strType, String strMessage, String strHost, String strClient) throws SQLException {
-        ResultSet resultSet = getSQL().createStatement().executeQuery("EXEC insertWSMessage @Type = '" + strType + "', @Message = '" + strMessage + "', @HostAddress = '" + strHost + "', @ClientAddress='" + strClient + "'");
-        resultSet.next();
-        return resultSet.getInt("MessageID");
-    }
-
-    public Map<String, Octet<String, Integer, Integer, Integer, Integer, Integer, Integer, BigDecimal>>  fetchPairs() throws SQLException {
-        Map<String, Octet<String, Integer, Integer, Integer, Integer, Integer, Integer, BigDecimal>> mapTupleValues = new HashMap<>();
-        ResultSet resultSet = getSQL().createStatement().executeQuery("EXEC [dbo].[fetchPairs]");
-
-        while(resultSet.next()) {
-            Octet<String, Integer, Integer, Integer, Integer, Integer, Integer, BigDecimal> tupleValues = new Octet<>(
-                    resultSet.getString("AlternativePairName"),
+            sqlPair objPair = new sqlPair(
                     resultSet.getInt("PairID"),
+                    resultSet.getString("AlternativeName"),
+                    resultSet.getString("WebsocketPairName"),
+                    resultSet.getInt("BaseID"),
+                    resultSet.getInt("QuoteID"),
                     resultSet.getInt("PairDecimals"),
                     resultSet.getInt("LotDecimals"),
                     resultSet.getInt("LotMultiplier"),
+                    resultSet.getInt("FeeCurrency"),
                     resultSet.getInt("MarginCall"),
                     resultSet.getInt("MarginStop"),
-                    resultSet.getBigDecimal("OrderMinimum")
+                    resultSet.getBigDecimal("OrderMinimum"),
+                    resultSet.getBigDecimal("CostMinimum")
             );
 
-            mapTupleValues.put(resultSet.getString("AlternativePairName"), tupleValues);
-        }
+            returnValues.put(objPair.GetAlternativeName(), objPair);
+        };
 
-        return mapTupleValues;
+        return returnValues;
     }
 
-    public Map<Integer, Fee> fetchFees() throws SQLException {
-        Map<Integer, Fee> mapFees = new HashMap<>();
-        ResultSet resultSet = getSQL().createStatement().executeQuery("EXEC [dbo].[new_fetchFees]");
+    public void insertBulkAssets(String JSONData) throws SQLException {
+        getSQL().createStatement().execute("EXEC PUT_InsertAssets @JSONData = '" + JSONData + "'");
+    }
+
+    public void updateBulkAssets(String JSONData) throws SQLException {
+        getSQL().createStatement().execute("EXEC PATCH_UpdateAssets @JSONData = '" + JSONData + "'");
+    }
+
+    public void insertBulkPairs(String JSONData) throws SQLException {
+        getSQL().createStatement().execute("EXEC PUT_InsertPairs @JSONData = '" + JSONData + "'");
+    }
+
+    public void updateBulkPairs(String JSONData) throws SQLException {
+        getSQL().createStatement().execute("EXEC PATCH_UpdatePairs @JSONData = '" + JSONData + "'");
+    }
+
+    public void insertBulkFees(String JSONData) throws SQLException {
+        getSQL().createStatement().execute("EXEC PUT_InsertFees @JSONData = '" + JSONData + "'");
+    }
+
+    public void updateBulkFees(String JSONData) throws SQLException {
+        getSQL().createStatement().execute("EXEC PATCH_UpdateFees @JSONData = '" + JSONData + "'");
+    }
+
+    public void insertBulkLeverages(String JSONData) throws SQLException {
+        getSQL().createStatement().execute("EXEC PUT_InsertLeverages @JSONData = '" + JSONData + "'");
+    }
+
+    public void deleteBulkLeverages(String JSONData) throws SQLException {
+        getSQL().createStatement().execute("EXEC DELETE_TrimLeverages @JSONData = '" + JSONData + "'");
+    }
+
+    public Map<String, Integer> fetchAllAssetIDs() throws SQLException {
+        Map<String, Integer> returnMap = new HashMap<>();
+        ResultSet resultSet = getSQL().createStatement().executeQuery("EXEC dbo.GET_ReturnAllAssetIDs");
 
         while(resultSet.next()) {
-            Fee tupleValues = new Fee(
+            returnMap.put(resultSet.getString("AlternativeName"), resultSet.getInt("AssetID"));
+        }
+
+        return returnMap;
+    }
+
+    public Map<Integer, sqlFees> fetchFees() throws SQLException {
+        Map<Integer, sqlFees> mapFees = new HashMap<>();
+        ResultSet resultSet = getSQL().createStatement().executeQuery("EXEC [dbo].[GET_ReturnFees]");
+
+        while(resultSet.next()) {
+            sqlFees objFee = new sqlFees(
+                    resultSet.getInt("FeeID"),
                     resultSet.getInt("PairID"),
                     resultSet.getString("FeeType"),
                     resultSet.getInt("FeeVolume"),
-                    resultSet.getBigDecimal("FeePercentCost")
+                    resultSet.getDouble("FeePercentCost")
             );
 
-            mapFees.put(resultSet.getInt("FeeID"), tupleValues);
+            mapFees.put(resultSet.getInt("FeeID"), objFee);
         }
 
         return mapFees;
-    }
-
-    public void insertAssets(String JSONData) throws SQLException {
-        getSQL().createStatement().execute("EXEC new_insertAsset @JSONData = '" + JSONData + "'");
-    }
-
-    public void updateAssets(String JSONData) throws SQLException {
-        getSQL().createStatement().execute("EXEC new_updateAsset @JSONData = '" + JSONData + "'");
-    }
-
-    public void insertPairs(String JSONData) throws SQLException {
-        getSQL().createStatement().execute("EXEC insertPair @JSONData = '" + JSONData + "'");
-    }
-
-    public void updatePairs(String JSONData) throws SQLException {
-        getSQL().createStatement().execute("EXEC updatePair @JSONData = '" + JSONData + "'");
-    }
-
-    public void insertFees(String JSONData) throws SQLException {
-        getSQL().createStatement().execute("EXEC new_insertFees @JSONData = '" + JSONData + "'");
-    }
-
-    public void updateFees(String JSONData) throws SQLException {
-        getSQL().createStatement().execute("EXEC new_updateFee @JSONData = '" + JSONData + "'");
-    }
-
-    public void insertLeverages(String JSONData, String LeverageType) throws SQLException {
-        getSQL().createStatement().execute("EXEC new_insertLeverages @JSONData = '" + JSONData + "', @LeverageType ='" + LeverageType + "'");
     }
 }

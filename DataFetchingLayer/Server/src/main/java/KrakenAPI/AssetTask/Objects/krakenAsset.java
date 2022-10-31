@@ -1,10 +1,10 @@
-package MSSQL.AssetTask;
+package KrakenAPI.AssetTask.Objects;
 
 import java.math.BigDecimal;
 import java.util.HashSet;
 import java.util.Set;
 
-public class Asset {
+public class krakenAsset {
     private final String AlternativeName;
     private final String Class;
     private final int Decimals;
@@ -12,7 +12,7 @@ public class Asset {
     private final BigDecimal CollateralValue;
     private final boolean isFiat;
 
-    public Asset(String AlternativeName, String Class, double Decimals, double DisplayDecimals, BigDecimal CollateralValue) {
+    public krakenAsset(String AlternativeName, String Class, double Decimals, double DisplayDecimals, BigDecimal CollateralValue) {
         this.AlternativeName = AlternativeName;
         this.Class = Class;
         this.Decimals = (int)Decimals;

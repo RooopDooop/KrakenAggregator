@@ -90,11 +90,11 @@ public class websocketQueue extends Thread {
         if (this.listClientConnections.size() > 0) {
             HashMap<Integer, String> clientAssignment = new HashMap<>();
             Map<String, Octet<String, Integer, Integer, Integer, Integer, Integer, Integer, BigDecimal>> mapTupleValues = new HashMap<>();
-            try {
+            /*try {
                 mapTupleValues = new SQLConn().fetchPairs();
             } catch (SQLException e) {
                 e.printStackTrace();
-            }
+            }*/
 
             //TODO re-write this using proper class
             int latestInput = 0;
