@@ -7,9 +7,6 @@ import (
 	"log"
 	"net/http"
 	"strings"
-
-	"J.Morin/KrakenScraper/redisLib"
-	"github.com/go-redis/redis"
 )
 
 type TradeObject struct {
@@ -21,7 +18,7 @@ type TradeObject struct {
 	MarketOrLimit string `json:"MarketOrLimit"`
 }
 
-func ProcessTrades(client *redis.Client, URL string) {
+func ProcessTrades(chanWSResponse chan []byte, URL string) {
 	var PairName string = strings.Split(URL, "?pair=")[1]
 
 	resp, err := http.Get(URL)
@@ -46,7 +43,7 @@ func ProcessTrades(client *redis.Client, URL string) {
 		for key, arrTrades := range response["result"].(map[string]interface{}) {
 			if key != "last" {
 				for _, objTrade := range arrTrades.([]interface{}) {
-					client.HSet("Trade:"+PairName+"#"+fmt.Sprintf("%f", objTrade.([]interface{})[2].(float64)), "Price", objTrade.([]interface{})[0].(string))
+					/*client.HSet("Trade:"+PairName+"#"+fmt.Sprintf("%f", objTrade.([]interface{})[2].(float64)), "Price", objTrade.([]interface{})[0].(string))
 					client.HSet("Trade:"+PairName+"#"+fmt.Sprintf("%f", objTrade.([]interface{})[2].(float64)), "Volume", objTrade.([]interface{})[1].(string))
 
 					if objTrade.([]interface{})[3].(string) == "b" {
@@ -59,12 +56,13 @@ func ProcessTrades(client *redis.Client, URL string) {
 						client.HSet("Trade:"+PairName+"#"+fmt.Sprintf("%f", objTrade.([]interface{})[2].(float64)), "MarketOrLimit", "Limit")
 					} else if objTrade.([]interface{})[4].(string) == "m" {
 						client.HSet("Trade:"+PairName+"#"+fmt.Sprintf("%f", objTrade.([]interface{})[2].(float64)), "MarketOrLimit", "Market")
-					}
+					}*/
+
+					fmt.Println(objTrade)
 				}
 			}
 		}
 	}
 
 	fmt.Println("Processed trade: " + PairName)
-	redisLib.DisconnectFromRedis(client)
 }

@@ -38,11 +38,11 @@ public class wsMessage implements Comparable<wsMessage> {
     }
 
     public void generateID(WebSocket conn) {
-        /*try {
+        try {
             this.MessageID = new SQLConn().insertWSMessage(Action, Message, conn.getLocalSocketAddress().toString(), conn.getRemoteSocketAddress().toString());
         } catch (Exception e) {
             e.printStackTrace();
-        }*/
+        }
     }
 
     public int returnID() {

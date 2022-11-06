@@ -18,10 +18,6 @@ import java.util.concurrent.LinkedBlockingDeque;
 public class websocketRouting extends WebSocketServer {
     websocketQueue objWSQueue = new websocketQueue();
 
-    //Redis object
-    //Is this necessary?
-    //Jedis jedis = new Jedis("192.168.0.20", 6379);
-
     public websocketRouting(InetSocketAddress address) {
         super(address);
         objWSQueue.start();

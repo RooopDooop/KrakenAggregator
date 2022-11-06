@@ -1,5 +1,6 @@
 package WebsocketServer;
 
+import MSSQL.Objects.sqlPair;
 import MSSQL.SQLConn;
 import org.java_websocket.WebSocket;
 import org.javatuples.Octet;
@@ -81,6 +82,14 @@ public class websocketQueue extends Thread {
                     e.printStackTrace();
                 }
             }
+            //TODO add the other functions here, Ticker, OHLC and trade
+            case "SubmitOrders" -> {
+                try {
+                    new SQLConn().insertOrders(objMessage.returnMessage());
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
+            }
         }
     }
 
@@ -89,20 +98,20 @@ public class websocketQueue extends Thread {
 
         if (this.listClientConnections.size() > 0) {
             HashMap<Integer, String> clientAssignment = new HashMap<>();
-            Map<String, Octet<String, Integer, Integer, Integer, Integer, Integer, Integer, BigDecimal>> mapTupleValues = new HashMap<>();
-            /*try {
-                mapTupleValues = new SQLConn().fetchPairs();
+            Map<Integer, sqlPair> mapSQLPairs = new HashMap<>();
+
+            try {
+                mapSQLPairs = new SQLConn().getAllPairs();
             } catch (SQLException e) {
                 e.printStackTrace();
-            }*/
+            }
 
-            //TODO re-write this using proper class
             int latestInput = 0;
-            for (Octet<String, Integer, Integer, Integer, Integer, Integer, Integer, BigDecimal> tupleValues : mapTupleValues.values()) {
+            for (sqlPair objPair : mapSQLPairs.values()) {
                 if (clientAssignment.get(latestInput) == null) {
-                    clientAssignment.put(latestInput, tupleValues.getValue0());
+                    clientAssignment.put(latestInput, objPair.GetAlternativeName());
                 } else {
-                    clientAssignment.put(latestInput, clientAssignment.get(latestInput) + ", " + tupleValues.getValue0());
+                    clientAssignment.put(latestInput, clientAssignment.get(latestInput) + ", " + objPair.GetAlternativeName());
                 }
 
                 latestInput++;

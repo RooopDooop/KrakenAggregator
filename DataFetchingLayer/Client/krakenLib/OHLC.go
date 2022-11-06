@@ -5,12 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"strconv"
 	"strings"
-
-	"github.com/go-redis/redis"
-
-	redisLib "J.Morin/KrakenScraper/redisLib"
 )
 
 type OHCLObject struct {
@@ -25,47 +20,43 @@ type OHCLObject struct {
 	Count      int    `json:"count"`
 }
 
-func ProcessOHLC(client *redis.Client, URL string) {
+func ProcessOHLC(chanWSResponse chan []byte, URL string) {
 	var PairName string = strings.Split(URL, "?pair=")[1]
 
-	if _, err := client.Pipelined(func(rdb redis.Pipeliner) error {
-		resp, errCall := http.Get(URL + "&interval=1")
-		if errCall != nil {
-			panic(errCall)
-		}
+	resp, errCall := http.Get(URL + "&interval=1")
+	if errCall != nil {
+		panic(errCall)
+	}
 
-		defer resp.Body.Close()
+	defer resp.Body.Close()
 
-		bodyBytes, bodyErr := ioutil.ReadAll(resp.Body)
-		if bodyErr != nil {
-			panic(bodyErr)
-		}
+	bodyBytes, bodyErr := ioutil.ReadAll(resp.Body)
+	if bodyErr != nil {
+		panic(bodyErr)
+	}
 
-		var response map[string]interface{}
+	var response map[string]interface{}
 
-		if errResponse := json.Unmarshal(bodyBytes, &response); errResponse != nil {
-			panic(errResponse)
-		}
+	if errResponse := json.Unmarshal(bodyBytes, &response); errResponse != nil {
+		panic(errResponse)
+	}
 
-		if response["result"] != nil {
-			for headerStr, objResult := range response["result"].(map[string]interface{}) {
-				if headerStr != "last" {
-					for _, OHLCData := range objResult.([]interface{}) {
-						rdb.HSet("OHCL:"+PairName+"#"+strconv.Itoa(int(OHLCData.([]interface{})[0].(float64))), "PriceOpen", OHLCData.([]interface{})[1].(string))
-						rdb.HSet("OHCL:"+PairName+"#"+strconv.Itoa(int(OHLCData.([]interface{})[0].(float64))), "PriceHigh", OHLCData.([]interface{})[2].(string))
-						rdb.HSet("OHCL:"+PairName+"#"+strconv.Itoa(int(OHLCData.([]interface{})[0].(float64))), "PriceLow", OHLCData.([]interface{})[3].(string))
-						rdb.HSet("OHCL:"+PairName+"#"+strconv.Itoa(int(OHLCData.([]interface{})[0].(float64))), "PriceClose", OHLCData.([]interface{})[4].(string))
-						rdb.HSet("OHCL:"+PairName+"#"+strconv.Itoa(int(OHLCData.([]interface{})[0].(float64))), "PriceVolumeWeightedAverage", OHLCData.([]interface{})[5].(string))
-						rdb.HSet("OHCL:"+PairName+"#"+strconv.Itoa(int(OHLCData.([]interface{})[0].(float64))), "Volume", OHLCData.([]interface{})[6].(string))
-						rdb.HSet("OHCL:"+PairName+"#"+strconv.Itoa(int(OHLCData.([]interface{})[0].(float64))), "Count", OHLCData.([]interface{})[7].(float64))
-					}
+	if response["result"] != nil {
+		for headerStr, objResult := range response["result"].(map[string]interface{}) {
+			if headerStr != "last" {
+				for _, OHLCData := range objResult.([]interface{}) {
+					/*rdb.HSet("OHCL:"+PairName+"#"+strconv.Itoa(int(OHLCData.([]interface{})[0].(float64))), "PriceOpen", OHLCData.([]interface{})[1].(string))
+					rdb.HSet("OHCL:"+PairName+"#"+strconv.Itoa(int(OHLCData.([]interface{})[0].(float64))), "PriceHigh", OHLCData.([]interface{})[2].(string))
+					rdb.HSet("OHCL:"+PairName+"#"+strconv.Itoa(int(OHLCData.([]interface{})[0].(float64))), "PriceLow", OHLCData.([]interface{})[3].(string))
+					rdb.HSet("OHCL:"+PairName+"#"+strconv.Itoa(int(OHLCData.([]interface{})[0].(float64))), "PriceClose", OHLCData.([]interface{})[4].(string))
+					rdb.HSet("OHCL:"+PairName+"#"+strconv.Itoa(int(OHLCData.([]interface{})[0].(float64))), "PriceVolumeWeightedAverage", OHLCData.([]interface{})[5].(string))
+					rdb.HSet("OHCL:"+PairName+"#"+strconv.Itoa(int(OHLCData.([]interface{})[0].(float64))), "Volume", OHLCData.([]interface{})[6].(string))
+					rdb.HSet("OHCL:"+PairName+"#"+strconv.Itoa(int(OHLCData.([]interface{})[0].(float64))), "Count", OHLCData.([]interface{})[7].(float64))*/
+
+					fmt.Println(OHLCData)
 				}
 			}
 		}
-		return nil
-	}); err != nil {
-		panic(err)
 	}
 	fmt.Println("OHLC processed: " + PairName)
-	redisLib.DisconnectFromRedis(client)
 }

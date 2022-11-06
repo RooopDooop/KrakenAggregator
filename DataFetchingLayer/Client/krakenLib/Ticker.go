@@ -6,16 +6,10 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"strconv"
 	"strings"
-	"time"
-
-	"github.com/go-redis/redis"
-
-	redisLib "J.Morin/KrakenScraper/redisLib"
 )
 
-func ProcessTicker(client *redis.Client, URL string) {
+func ProcessTicker(chanWSResponse chan []byte, URL string) {
 	var PairName string = strings.Split(URL, "?pair=")[1]
 
 	resp, err := http.Get(URL)
@@ -37,7 +31,9 @@ func ProcessTicker(client *redis.Client, URL string) {
 	}
 
 	for _, objResult := range response["result"].(map[string]interface{}) {
-		var aPrice string = objResult.(map[string]interface{})["a"].([]interface{})[0].(string)
+		fmt.Println(objResult)
+
+		/*var aPrice string = objResult.(map[string]interface{})["a"].([]interface{})[0].(string)
 		var aWholeLotVolume string = objResult.(map[string]interface{})["a"].([]interface{})[1].(string)
 		var aLotVolume string = objResult.(map[string]interface{})["a"].([]interface{})[2].(string)
 
@@ -91,9 +87,8 @@ func ProcessTicker(client *redis.Client, URL string) {
 		client.HSet("Ticker:"+PairName+"#"+strconv.Itoa(int(time.Now().Unix())), "TodayHigh", todayHigh)
 		client.HSet("Ticker:"+PairName+"#"+strconv.Itoa(int(time.Now().Unix())), "TwentyFourHigh", lasttwentyFourHigh)
 
-		client.HSet("Ticker:"+PairName+"#"+strconv.Itoa(int(time.Now().Unix())), "OpeningPrice", todayOpeningPrice)
+		client.HSet("Ticker:"+PairName+"#"+strconv.Itoa(int(time.Now().Unix())), "OpeningPrice", todayOpeningPrice)*/
 	}
 
 	fmt.Println("Processed ticker: " + PairName)
-	redisLib.DisconnectFromRedis(client)
 }

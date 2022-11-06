@@ -24,6 +24,33 @@ public class SQLConn {
         return SQLConnection;
     }
 
+    public Map<Integer, sqlPair> getAllPairs() throws SQLException {
+        ResultSet resultSet = getSQL().createStatement().executeQuery("EXEC GET_AllPairs");
+        Map<Integer, sqlPair> returnValues = new HashMap<>();
+
+        while(resultSet.next()) {
+            sqlPair objPair = new sqlPair(
+                    resultSet.getInt("PairID"),
+                    resultSet.getString("AlternativePairName"),
+                    resultSet.getString("WebsocketPairName"),
+                    resultSet.getInt("BaseID"),
+                    resultSet.getInt("QuoteID"),
+                    resultSet.getInt("PairDecimals"),
+                    resultSet.getInt("LotDecimals"),
+                    resultSet.getInt("LotMultiplier"),
+                    resultSet.getInt("FeeCurrency"),
+                    resultSet.getInt("MarginCall"),
+                    resultSet.getInt("MarginStop"),
+                    resultSet.getBigDecimal("OrderMinimum"),
+                    resultSet.getBigDecimal("CostMinimum")
+            );
+
+            returnValues.put(objPair.GetPairID(), objPair);
+        }
+
+        return returnValues;
+    }
+
     public Map<String, sqlAsset> compareAllAssets(String arrAlternativeNames) throws SQLException {
         ResultSet resultSet = getSQL().createStatement().executeQuery("EXEC GET_CompareAllAssets @AggregatedAlternatives = '" + arrAlternativeNames + "'");
         Map<String, sqlAsset> returnValues = new HashMap<>();
@@ -102,6 +129,16 @@ public class SQLConn {
 
     public void deleteBulkLeverages(String JSONData) throws SQLException {
         getSQL().createStatement().execute("EXEC DELETE_TrimLeverages @JSONData = '" + JSONData + "'");
+    }
+
+    public int insertWSMessage(String Action, String Message, String LocalAddress, String RemoteAddress) throws SQLException {
+        ResultSet resultSet = getSQL().createStatement().executeQuery("EXEC PUT_InsertWSMessage @Type = '" + Action + "', @Message = '" + Message + "', @HostAddress = '" + LocalAddress + "', @ClientAddress='" + RemoteAddress + "'" );
+        resultSet.next();
+        return resultSet.getInt("MessageID");
+    }
+
+    public void insertOrders(String JSONData) throws SQLException {
+        getSQL().createStatement().execute("EXEC PUT_InsertOrders @JSONData='" + JSONData + "'");
     }
 
     public Map<String, Integer> fetchAllAssetIDs() throws SQLException {

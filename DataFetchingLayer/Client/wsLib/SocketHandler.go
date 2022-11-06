@@ -7,22 +7,13 @@ import (
 	"os"
 	"os/signal"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/robfig/cron/v3"
 
 	krakenLib "J.Morin/KrakenScraper/krakenLib"
-	redisLib "J.Morin/KrakenScraper/redisLib"
 )
-
-type WebsocketCall struct {
-	MessageID int    `json:"MessageID"`
-	Action    string `json:"Action"`
-	TimeSent  int64  `json:"TimeSent"`
-	Message   string `json:"Message"`
-}
 
 func StartWebsocket() {
 	done := make(chan interface{})    // Channel to indicate that the receiverHandler is done
@@ -30,7 +21,7 @@ func StartWebsocket() {
 
 	signal.Notify(interrupt, os.Interrupt) // Notify the interrupt channel for SIGINT
 
-	socketUrl := "ws://localhost:8080" + "/"
+	socketUrl := "ws://localhost:8081" + "/"
 	connSocket, _, errDial := websocket.DefaultDialer.Dial(socketUrl, nil)
 	if errDial != nil {
 		log.Fatal("Error connecting to Websocket Server:", errDial)
@@ -69,6 +60,9 @@ func receiveHandler(done chan interface{}, connSocket *websocket.Conn) {
 	defer close(done)
 	CRONScheduler := cron.New()
 
+	var chanWSResponse chan []byte = make(chan []byte)
+	go WSResponseQueue(connSocket, chanWSResponse)
+
 	for {
 		_, msg, err := connSocket.ReadMessage()
 		if err != nil {
@@ -76,7 +70,7 @@ func receiveHandler(done chan interface{}, connSocket *websocket.Conn) {
 			return
 		}
 
-		var wsMessage WebsocketCall
+		var wsMessage krakenLib.WebsocketCall
 		errWsMess := json.Unmarshal(msg, &wsMessage)
 		if errWsMess != nil {
 			panic(errWsMess)
@@ -92,60 +86,49 @@ func receiveHandler(done chan interface{}, connSocket *websocket.Conn) {
 				CRONScheduler.Remove(job.ID)
 			}
 
-			var socketSync sync.Mutex
 			for _, strPair := range strings.Split(wsMessage.Message, ", ") {
 				CRONPair := strPair
 				//OHLC every 10m
 				CRONScheduler.AddFunc("@every 10m", func() {
-					ScheduleJob(connSocket, &socketSync, "ScheduleOHLC", "https://api.kraken.com/0/public/OHLC?pair="+CRONPair)
+					go krakenLib.ScheduleJob(chanWSResponse, "ScheduleOHLC", "https://api.kraken.com/0/public/OHLC?pair="+CRONPair)
 				})
 
 				//Ticker every 1h
 				CRONScheduler.AddFunc("@every 1h", func() {
-					ScheduleJob(connSocket, &socketSync, "ScheduleTicker", "https://api.kraken.com/0/public/Ticker?pair="+CRONPair)
+					go krakenLib.ScheduleJob(chanWSResponse, "ScheduleTicker", "https://api.kraken.com/0/public/Ticker?pair="+CRONPair)
 				})
 
 				//Trades every 5m
 				CRONScheduler.AddFunc("@every 5m", func() {
-					ScheduleJob(connSocket, &socketSync, "ScheduleTrade", "https://api.kraken.com/0/public/Trades?pair="+CRONPair)
+					go krakenLib.ScheduleJob(chanWSResponse, "ScheduleTrade", "https://api.kraken.com/0/public/Trades?pair="+CRONPair)
 				})
 
-				//Orders every 1m
-				CRONScheduler.AddFunc("@every 2m", func() {
-					ScheduleJob(connSocket, &socketSync, "ScheduleOrder", "https://api.kraken.com/0/public/Depth?pair="+CRONPair)
+				//Orders every 2m
+				CRONScheduler.AddFunc("@every 3m", func() {
+					go krakenLib.ScheduleJob(chanWSResponse, "ScheduleOrder", "https://api.kraken.com/0/public/Depth?pair="+CRONPair)
 				})
 			}
 
 			CRONScheduler.Start()
 		case "ProcessTrade":
-			go krakenLib.ProcessTrades(redisLib.ConnectToRedis(), wsMessage.Message)
+			go krakenLib.ProcessTrades(chanWSResponse, wsMessage.Message)
 		case "ProcessTicker":
-			go krakenLib.ProcessTicker(redisLib.ConnectToRedis(), wsMessage.Message)
+			go krakenLib.ProcessTicker(chanWSResponse, wsMessage.Message)
 		case "ProcessOrder":
-			go krakenLib.ProcessOrder(redisLib.ConnectToRedis(), wsMessage.Message)
+			go krakenLib.ProcessOrder(chanWSResponse, wsMessage.Message)
 		case "ProcessOHLC":
-			go krakenLib.ProcessOHLC(redisLib.ConnectToRedis(), wsMessage.Message)
+			go krakenLib.ProcessOHLC(chanWSResponse, wsMessage.Message)
 		}
 	}
 }
 
-func ScheduleJob(connSocket *websocket.Conn, socketSync *sync.Mutex, strAction string, URL string) {
-	var jsonMessage WebsocketCall = WebsocketCall{
-		MessageID: 0,
-		Action:    strAction,
-		TimeSent:  time.Now().Unix(),
-		Message:   URL,
-	}
+func WSResponseQueue(connSocket *websocket.Conn, chanWSResponse chan []byte) {
+	for true {
+		byteJSON := <-chanWSResponse
 
-	strJson, errMarsh := json.Marshal(jsonMessage)
-	if errMarsh != nil {
-		panic(errMarsh)
+		err := connSocket.WriteMessage(websocket.TextMessage, byteJSON)
+		if err != nil {
+			panic(err.Error())
+		}
 	}
-
-	socketSync.Lock()
-	err := connSocket.WriteMessage(websocket.TextMessage, strJson)
-	if err != nil {
-		panic(err.Error())
-	}
-	socketSync.Unlock()
 }
