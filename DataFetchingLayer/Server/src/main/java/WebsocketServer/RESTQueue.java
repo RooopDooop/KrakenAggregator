@@ -14,16 +14,18 @@ public class RESTQueue extends Thread {
     public void run() {
         while (true) {
             try {
-                ProcessJob(jobQueue.take());
-                Thread.sleep(75);
+                RESTJob objJob = jobQueue.take();
+
+                System.out.println("Running job: " + objJob.returnTargetURL() + " - Jobs left: " + this.jobQueue.size());
+                ProcessJob(objJob, System.currentTimeMillis());
             } catch (InterruptedException e) {
-                e.printStackTrace();
+                throw new RuntimeException(e);
             }
         }
     }
 
-    public void AddJob(wsMessage objMessage) throws Exception {
-        RESTJob objJob = new RESTJob(objMessage.returnConn(), objMessage.returnAction(), objMessage.returnMessage());
+    public void AddJob(WebSocket wsConn, String Action, String Message) throws Exception {
+        RESTJob objJob = new RESTJob(wsConn, Action, Message);
         if (!jobQueue.offer(objJob)) {
             throw new Exception("QueueInsertFailed");
         }
@@ -35,7 +37,7 @@ public class RESTQueue extends Thread {
         jobQueue.clear();
     }
 
-    private void ProcessJob(RESTJob objJob) {
+    private void ProcessJob(RESTJob objJob, long epochStartTime) {
         String processType = "";
 
         switch (objJob.returnCategory()) {
@@ -52,6 +54,15 @@ public class RESTQueue extends Thread {
             this.latestRunTime = System.currentTimeMillis();
         } catch (WebsocketNotConnectedException e) {
             System.out.println(objJob.returnConn().getRemoteSocketAddress() + " - has disconnected, ignoring work");
+        }
+
+        long diffTime = System.currentTimeMillis() - epochStartTime;
+        if (diffTime < 125) {
+            try {
+                Thread.sleep(125 - diffTime);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
         }
     }
 }

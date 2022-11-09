@@ -14,7 +14,7 @@ public class SQLConn {
     public static Connection getSQL() {
         if (SQLConnection == null) {
             try  {
-                SQLConnection = DriverManager.getConnection("jdbc:sqlserver://192.168.1.120:1433; database=KrakenDB; user=sa; password=REMOVED; encrypt=false; trustServerCertificate=false; loginTimeout=30;");
+                SQLConnection = DriverManager.getConnection("jdbc:sqlserver://TowerDocker:1433; database=KrakenDB; user=sa; password=REMOVED; encrypt=false; trustServerCertificate=false; loginTimeout=30;");
                 System.out.println("Connected to DB!");
             } catch (SQLException e) {
                 e.printStackTrace();
@@ -138,6 +138,7 @@ public class SQLConn {
     }
 
     public void insertOrders(String JSONData) throws SQLException {
+        System.out.println("Inserting orders");
         getSQL().createStatement().execute("EXEC PUT_InsertOrders @JSONData='" + JSONData + "'");
     }
 

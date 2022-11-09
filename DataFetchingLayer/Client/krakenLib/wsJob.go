@@ -2,7 +2,10 @@ package krakenLib
 
 import (
 	"encoding/json"
+	"sync"
 	"time"
+
+	"github.com/gorilla/websocket"
 )
 
 type WebsocketCall struct {
@@ -12,7 +15,7 @@ type WebsocketCall struct {
 	Message   string `json:"Message"`
 }
 
-func ScheduleJob(chanWSResponse chan []byte, strAction string, URL string) {
+func ScheduleJob(connSocket *websocket.Conn, websocketMutex *sync.Mutex, strAction string, URL string) {
 	var jsonMessage WebsocketCall = WebsocketCall{
 		MessageID: 0,
 		Action:    strAction,
@@ -20,20 +23,15 @@ func ScheduleJob(chanWSResponse chan []byte, strAction string, URL string) {
 		Message:   URL,
 	}
 
-	strJson, errMarsh := json.Marshal(jsonMessage)
+	byteJSON, errMarsh := json.Marshal(jsonMessage)
 	if errMarsh != nil {
 		panic(errMarsh)
 	}
 
-	chanWSResponse <- strJson
-
-	/*strJson, errMarsh := json.Marshal(jsonMessage)
-	if errMarsh != nil {
-		panic(errMarsh)
-	}
-
-	err := connSocket.WriteMessage(websocket.TextMessage, strJson)
+	websocketMutex.Lock()
+	err := connSocket.WriteMessage(websocket.TextMessage, byteJSON)
 	if err != nil {
 		panic(err.Error())
-	}*/
+	}
+	websocketMutex.Unlock()
 }

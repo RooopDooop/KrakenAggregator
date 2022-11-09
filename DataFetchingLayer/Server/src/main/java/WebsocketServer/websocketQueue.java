@@ -7,6 +7,7 @@ import org.javatuples.Octet;
 
 import java.math.BigDecimal;
 import java.sql.SQLException;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
@@ -60,37 +61,45 @@ public class websocketQueue extends Thread {
     }
 
     private void ProcessMessage(wsMessage objMessage) {
-        if (objMessage.returnID() == 0) {
-            objMessage.generateID(objMessage.returnConn());
-        }
+        Thread thread = new Thread(){
+            public void run(){
+                if (objMessage.returnID() == 0) {
+                    objMessage.generateID(objMessage.returnConn());
+                }
 
-        switch (objMessage.returnAction()) {
-            case "ClientWelcoming" -> {
-                objMessage.returnConn().send(objMessage.returnJSON());
-            }
-            case "AssignPairs" -> {
-                System.out.println("Allocating Pairs to: " + objMessage.returnConn().getRemoteSocketAddress());
-                objMessage.returnConn().send(objMessage.returnJSON());
-            }
-            case "ClientDisconnected" -> {
-                System.out.println("Client disconnected: " + objMessage.returnConn().getRemoteSocketAddress());
-            }
-            case "ScheduleTrade", "ScheduleOrder", "ScheduleTicker", "ScheduleOHLC" -> {
-                try {
-                    this.objJobQueue.AddJob(objMessage);
-                } catch (Exception e) {
-                    e.printStackTrace();
+                switch (objMessage.returnAction()) {
+                    case "ClientWelcoming" -> {
+                        objMessage.returnConn().send(objMessage.returnJSON());
+                    }
+                    case "AssignPairs" -> {
+                        System.out.println("Allocating Pairs to: " + objMessage.returnConn().getRemoteSocketAddress());
+                        objMessage.returnConn().send(objMessage.returnJSON());
+                    }
+                    case "ClientDisconnected" -> {
+                        System.out.println("Client disconnected: " + objMessage.returnConn().getRemoteSocketAddress());
+                    }
+                    case "ScheduleTrade", "ScheduleOrder", "ScheduleTicker", "ScheduleOHLC" -> {
+                        try {
+                            for (String strPair : objMessage.returnMessage().split(", ")) {
+                                objJobQueue.AddJob(objMessage.returnConn(), objMessage.returnAction(), "https://api.kraken.com/0/public/Depth?pair="+strPair);
+                            }
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
+                    }
+                    //TODO add the other functions here, Ticker, OHLC and trade
+                    case "SubmitOrders" -> {
+                        try {
+                            new SQLConn().insertOrders(objMessage.returnMessage());
+                        } catch (SQLException e) {
+                            e.printStackTrace();
+                        }
+                    }
                 }
             }
-            //TODO add the other functions here, Ticker, OHLC and trade
-            case "SubmitOrders" -> {
-                try {
-                    new SQLConn().insertOrders(objMessage.returnMessage());
-                } catch (SQLException e) {
-                    e.printStackTrace();
-                }
-            }
-        }
+        };
+
+        thread.start();
     }
 
     private void distributePairs() {

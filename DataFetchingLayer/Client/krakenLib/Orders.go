@@ -7,6 +7,9 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"sync"
+
+	"github.com/gorilla/websocket"
 )
 
 type Order struct {
@@ -17,7 +20,7 @@ type Order struct {
 	Timestamp           int64
 }
 
-func ProcessOrder(chanWSResponse chan []byte, URL string) {
+func ProcessOrder(connSocket *websocket.Conn, websocketMutex *sync.Mutex, URL string) {
 	var PairName string = strings.Split(URL, "?pair=")[1]
 
 	resp, err := http.Get(URL)
@@ -55,10 +58,6 @@ func ProcessOrder(chanWSResponse chan []byte, URL string) {
 							epoch,
 						}
 
-						//var epoch string = fmt.Sprintf("%v", int(objBid.([]interface{})[2].(float64)))
-						/*client.HSet("OrderBid:"+PairName+"#"+epoch+"#"+fmt.Sprint(objBid.([]interface{})[0])+"#"+fmt.Sprint(objBid.([]interface{})[1]), "Price", objBid.([]interface{})[0])
-						client.HSet("OrderBid:"+PairName+"#"+epoch+"#"+fmt.Sprint(objBid.([]interface{})[0])+"#"+fmt.Sprint(objBid.([]interface{})[1]), "Volume", objBid.([]interface{})[1])*/
-
 						arrOrders = append(arrOrders, objOrders)
 					}
 				} else if interfaceHeader == "asks" {
@@ -73,11 +72,6 @@ func ProcessOrder(chanWSResponse chan []byte, URL string) {
 							epoch,
 						}
 
-						//
-
-						/*client.HSet("OrderAsk:"+PairName+"#"+epoch+"#"+fmt.Sprint(objAsk.([]interface{})[0])+"#"+fmt.Sprint(objAsk.([]interface{})[1]), "Price", objAsk.([]interface{})[0])
-						client.HSet("OrderAsk:"+PairName+"#"+epoch+"#"+fmt.Sprint(objAsk.([]interface{})[0])+"#"+fmt.Sprint(objAsk.([]interface{})[1]), "Volume", objAsk.([]interface{})[1])*/
-
 						arrOrders = append(arrOrders, objOrders)
 					}
 				}
@@ -85,32 +79,11 @@ func ProcessOrder(chanWSResponse chan []byte, URL string) {
 		}
 	}
 
-	jsonOrders, errJson := json.Marshal(arrOrders)
+	_, errJson := json.Marshal(arrOrders)
 	if errJson != nil {
 		panic(errJson.Error())
 	}
 
-	ScheduleJob(chanWSResponse, "SubmitOrders", string(jsonOrders))
+	//ScheduleJob(connSocket, websocketMutex, "SubmitOrders", string(jsonOrders))
 	fmt.Println("Order processed: " + PairName)
 }
-
-/*
-var jsonMessage WebsocketCall = WebsocketCall{
-		MessageID: 0,
-		Action:    strAction,
-		TimeSent:  time.Now().Unix(),
-		Message:   URL,
-	}
-
-	strJson, errMarsh := json.Marshal(jsonMessage)
-	if errMarsh != nil {
-		panic(errMarsh)
-	}
-
-	socketSync.Lock()
-	err := connSocket.WriteMessage(websocket.TextMessage, strJson)
-	if err != nil {
-		panic(err.Error())
-	}
-	socketSync.Unlock()
-*/

@@ -22,9 +22,10 @@ public class App {
         PairPullTimer.scheduleAtFixedRate(new taskPairs(), 0, TimeUnit.HOURS.toMillis(12));
 
         String host = "localhost";
-        int port = 8081;
+        int port = 8080;
 
         WebSocketServer server = new websocketRouting(new InetSocketAddress(host, port));
+        server.setConnectionLostTimeout(200);
         server.run();
     }
 }

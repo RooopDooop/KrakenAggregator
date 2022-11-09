@@ -3,7 +3,7 @@ module J.Morin/KrakenScraper
 go 1.17
 
 require (
-	github.com/denisenkom/go-mssqldb v0.12.2
+	github.com/denisenkom/go-mssqldb v0.12.3
 	github.com/go-co-op/gocron v1.3.1
 	github.com/go-redis/redis v6.15.9+incompatible
 	github.com/gorilla/websocket v1.5.0
