@@ -137,11 +137,6 @@ public class SQLConn {
         return resultSet.getInt("MessageID");
     }
 
-    public void insertOrders(String JSONData) throws SQLException {
-        System.out.println("Inserting orders");
-        getSQL().createStatement().execute("EXEC PUT_InsertOrders @JSONData='" + JSONData + "'");
-    }
-
     public Map<String, Integer> fetchAllAssetIDs() throws SQLException {
         Map<String, Integer> returnMap = new HashMap<>();
         ResultSet resultSet = getSQL().createStatement().executeQuery("EXEC dbo.GET_ReturnAllAssetIDs");

@@ -3,12 +3,11 @@ package WebsocketServer;
 import org.java_websocket.WebSocket;
 import org.java_websocket.exceptions.WebsocketNotConnectedException;
 
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingDeque;
+import java.util.Iterator;
+import java.util.concurrent.PriorityBlockingQueue;
 
 public class RESTQueue extends Thread {
-    private final BlockingQueue<RESTJob> jobQueue = new LinkedBlockingDeque<>();
-    private long latestRunTime = 0;
+    private final PriorityBlockingQueue<RESTJob> jobQueue = new PriorityBlockingQueue<>();
 
     @Override
     public void run() {
@@ -16,8 +15,18 @@ public class RESTQueue extends Thread {
             try {
                 RESTJob objJob = jobQueue.take();
 
+                this.jobQueue.forEach(queuedJob -> {
+                    if (queuedJob.returnConn() != objJob.returnConn()) {
+                        queuedJob.addStarvation(1);
+                    } else {
+                        queuedJob.removeStarvation();
+                    }
+                });
+
                 System.out.println("Running job: " + objJob.returnTargetURL() + " - Jobs left: " + this.jobQueue.size());
                 ProcessJob(objJob, System.currentTimeMillis());
+
+
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             }
@@ -33,7 +42,6 @@ public class RESTQueue extends Thread {
 
     public void ClearJobs() {
         System.out.println("Clearing jobs...");
-        this.latestRunTime = 0;
         jobQueue.clear();
     }
 
@@ -51,15 +59,14 @@ public class RESTQueue extends Thread {
         wsMessage objMessage = new wsMessage(objJob.returnConn(), processType, objJob.returnTargetURL());
         try {
             objJob.returnConn().send(objMessage.returnJSON());
-            this.latestRunTime = System.currentTimeMillis();
         } catch (WebsocketNotConnectedException e) {
             System.out.println(objJob.returnConn().getRemoteSocketAddress() + " - has disconnected, ignoring work");
         }
 
         long diffTime = System.currentTimeMillis() - epochStartTime;
-        if (diffTime < 125) {
+        if (diffTime < 100) {
             try {
-                Thread.sleep(125 - diffTime);
+                Thread.sleep(100 - diffTime);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }

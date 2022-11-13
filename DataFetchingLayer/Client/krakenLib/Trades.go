@@ -1,24 +1,26 @@
 package krakenLib
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 )
 
-type TradeObject struct {
-	PairID        int    `json:"PairID"`
-	Price         string `json:"Price"`
-	Volume        string `json:"Volume"`
-	Time          string `json:"tradeTime"`
-	BuyOrSell     string `json:"BuyOrSell"`
-	MarketOrLimit string `json:"MarketOrLimit"`
+type Trade struct {
+	AlternativePairName string `json:"AlternativePairName"`
+	Price               string `json:"Price"`
+	Volume              string `json:"Volume"`
+	Time                string `json:"tradeTime"`
+	BuyOrSell           string `json:"BuyOrSell"`
+	MarketOrLimit       string `json:"MarketOrLimit"`
 }
 
-func ProcessTrades(chanWSResponse chan []byte, URL string) {
+func ProcessTrades(sqlConn *sql.DB, URL string) {
 	var PairName string = strings.Split(URL, "?pair=")[1]
 
 	resp, err := http.Get(URL)
@@ -39,30 +41,51 @@ func ProcessTrades(chanWSResponse chan []byte, URL string) {
 		log.Fatal(errResponse)
 	}
 
-	if response["result"] != nil {
-		for key, arrTrades := range response["result"].(map[string]interface{}) {
-			if key != "last" {
-				for _, objTrade := range arrTrades.([]interface{}) {
-					/*client.HSet("Trade:"+PairName+"#"+fmt.Sprintf("%f", objTrade.([]interface{})[2].(float64)), "Price", objTrade.([]interface{})[0].(string))
-					client.HSet("Trade:"+PairName+"#"+fmt.Sprintf("%f", objTrade.([]interface{})[2].(float64)), "Volume", objTrade.([]interface{})[1].(string))
+	var arrTrades []Trade = []Trade{}
 
+	if response["result"] != nil {
+		for key, arrRawTrades := range response["result"].(map[string]interface{}) {
+			if key != "last" {
+				for _, objTrade := range arrRawTrades.([]interface{}) {
+					var BuyOrSell string
 					if objTrade.([]interface{})[3].(string) == "b" {
-						client.HSet("Trade:"+PairName+"#"+fmt.Sprintf("%f", objTrade.([]interface{})[2].(float64)), "BuyOrSell", "Buy")
+						BuyOrSell = "Buy"
 					} else if objTrade.([]interface{})[3].(string) == "s" {
-						client.HSet("Trade:"+PairName+"#"+fmt.Sprintf("%f", objTrade.([]interface{})[2].(float64)), "BuyOrSell", "Sell")
+						BuyOrSell = "Sell"
 					}
 
+					var MarketOrLimit string
 					if objTrade.([]interface{})[4].(string) == "l" {
-						client.HSet("Trade:"+PairName+"#"+fmt.Sprintf("%f", objTrade.([]interface{})[2].(float64)), "MarketOrLimit", "Limit")
+						MarketOrLimit = "Limit"
 					} else if objTrade.([]interface{})[4].(string) == "m" {
-						client.HSet("Trade:"+PairName+"#"+fmt.Sprintf("%f", objTrade.([]interface{})[2].(float64)), "MarketOrLimit", "Market")
-					}*/
+						MarketOrLimit = "Market"
+					}
 
-					fmt.Println(objTrade)
+					var objTrade Trade = Trade{
+						PairName,
+						objTrade.([]interface{})[0].(string),
+						objTrade.([]interface{})[1].(string),
+						fmt.Sprintf("%f", objTrade.([]interface{})[2].(float64)),
+						BuyOrSell,
+						MarketOrLimit,
+					}
+
+					arrTrades = append(arrTrades, objTrade)
 				}
 			}
 		}
 	}
 
-	fmt.Println("Processed trade: " + PairName)
+	jsonTrades, errJson := json.Marshal(arrTrades)
+	if errJson != nil {
+		panic(errJson.Error())
+	}
+
+	var rowsAffected string
+	execErr := sqlConn.QueryRow("EXEC PUT_InsertTrades @JSONData='" + string(jsonTrades) + "', @AlternativeName='" + PairName + "'").Scan(&rowsAffected)
+	if execErr != nil {
+		panic(execErr)
+	}
+
+	fmt.Println("Trade processed: " + PairName + " - Affected: " + rowsAffected + " Array Size: " + strconv.Itoa(len(arrTrades)) + " - " + URL)
 }

@@ -10,14 +10,14 @@ import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingDeque;
 
 public class websocketQueue extends Thread {
-    BlockingQueue<wsMessage> messageQueue = new LinkedBlockingDeque<>();
+    final BlockingQueue<wsMessage> messageQueue = new LinkedBlockingDeque<>();
     private final HashMap<WebSocket, websocketClient> listClientConnections = new HashMap<>();
-    RESTQueue objJobQueue = new RESTQueue();
-    //private final RESTQueue objRESTQueue = new RESTQueue();
+    private final RESTQueue objJobQueue = new RESTQueue();
 
     @Override
     public void run() {
@@ -61,8 +61,6 @@ public class websocketQueue extends Thread {
     }
 
     private void ProcessMessage(wsMessage objMessage) {
-        Thread thread = new Thread(){
-            public void run(){
                 if (objMessage.returnID() == 0) {
                     objMessage.generateID(objMessage.returnConn());
                 }
@@ -79,27 +77,28 @@ public class websocketQueue extends Thread {
                         System.out.println("Client disconnected: " + objMessage.returnConn().getRemoteSocketAddress());
                     }
                     case "ScheduleTrade", "ScheduleOrder", "ScheduleTicker", "ScheduleOHLC" -> {
+                        String targetURL = "";
+
+                        if (Objects.equals(objMessage.returnAction(), "ScheduleTrade")) {
+                            targetURL = "https://api.kraken.com/0/public/Trades?pair=";
+                        } else if (Objects.equals(objMessage.returnAction(), "ScheduleOrder")) {
+                            targetURL = "https://api.kraken.com/0/public/Depth?pair=";
+                        } else if (Objects.equals(objMessage.returnAction(), "ScheduleTicker")) {
+                            targetURL = "https://api.kraken.com/0/public/Ticker?pair=";
+                        } else if (Objects.equals(objMessage.returnAction(), "ScheduleOHLC")) {
+                            targetURL = "https://api.kraken.com/0/public/OHLC?pair=";
+                        }
+
                         try {
                             for (String strPair : objMessage.returnMessage().split(", ")) {
-                                objJobQueue.AddJob(objMessage.returnConn(), objMessage.returnAction(), "https://api.kraken.com/0/public/Depth?pair="+strPair);
+                                objJobQueue.AddJob(objMessage.returnConn(), objMessage.returnAction(), targetURL + strPair);
                             }
                         } catch (Exception e) {
                             e.printStackTrace();
                         }
                     }
-                    //TODO add the other functions here, Ticker, OHLC and trade
-                    case "SubmitOrders" -> {
-                        try {
-                            new SQLConn().insertOrders(objMessage.returnMessage());
-                        } catch (SQLException e) {
-                            e.printStackTrace();
-                        }
-                    }
-                }
-            }
-        };
 
-        thread.start();
+        };
     }
 
     private void distributePairs() {
@@ -142,5 +141,9 @@ public class websocketQueue extends Thread {
             this.objJobQueue.ClearJobs();
             System.out.println("All clients have disconnected");
         }
+    }
+
+    public int returnClientCount() {
+        return this.listClientConnections.size();
     }
 }

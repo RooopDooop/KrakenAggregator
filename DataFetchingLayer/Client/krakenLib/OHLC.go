@@ -1,26 +1,27 @@
 package krakenLib
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strconv"
 	"strings"
 )
 
-type OHCLObject struct {
-	PairID     int    `json:"PairID"`
-	EpochTime  int    `json:"epochTime"`
-	PriceOpen  string `json:"priceOpen"`
-	PriceHigh  string `json:"priceHigh"`
-	PriceLow   string `json:"priceLow"`
-	PriceClose string `json:"priceClose"`
-	VWAP       string `json:"VWAP"`
-	Volume     string `json:"volume"`
-	Count      int    `json:"count"`
+type OHLC struct {
+	Epoch                 float64
+	Open                  string
+	High                  string
+	Low                   string
+	Close                 string
+	VolumeWeightedAverage string
+	Volume                string
+	Count                 float64
 }
 
-func ProcessOHLC(chanWSResponse chan []byte, URL string) {
+func ProcessOHLC(sqlConn *sql.DB, URL string) {
 	var PairName string = strings.Split(URL, "?pair=")[1]
 
 	resp, errCall := http.Get(URL + "&interval=1")
@@ -41,22 +42,39 @@ func ProcessOHLC(chanWSResponse chan []byte, URL string) {
 		panic(errResponse)
 	}
 
+	var arrOHLC []OHLC = []OHLC{}
+
 	if response["result"] != nil {
 		for headerStr, objResult := range response["result"].(map[string]interface{}) {
 			if headerStr != "last" {
 				for _, OHLCData := range objResult.([]interface{}) {
-					/*rdb.HSet("OHCL:"+PairName+"#"+strconv.Itoa(int(OHLCData.([]interface{})[0].(float64))), "PriceOpen", OHLCData.([]interface{})[1].(string))
-					rdb.HSet("OHCL:"+PairName+"#"+strconv.Itoa(int(OHLCData.([]interface{})[0].(float64))), "PriceHigh", OHLCData.([]interface{})[2].(string))
-					rdb.HSet("OHCL:"+PairName+"#"+strconv.Itoa(int(OHLCData.([]interface{})[0].(float64))), "PriceLow", OHLCData.([]interface{})[3].(string))
-					rdb.HSet("OHCL:"+PairName+"#"+strconv.Itoa(int(OHLCData.([]interface{})[0].(float64))), "PriceClose", OHLCData.([]interface{})[4].(string))
-					rdb.HSet("OHCL:"+PairName+"#"+strconv.Itoa(int(OHLCData.([]interface{})[0].(float64))), "PriceVolumeWeightedAverage", OHLCData.([]interface{})[5].(string))
-					rdb.HSet("OHCL:"+PairName+"#"+strconv.Itoa(int(OHLCData.([]interface{})[0].(float64))), "Volume", OHLCData.([]interface{})[6].(string))
-					rdb.HSet("OHCL:"+PairName+"#"+strconv.Itoa(int(OHLCData.([]interface{})[0].(float64))), "Count", OHLCData.([]interface{})[7].(float64))*/
+					var objOHLC OHLC = OHLC{
+						OHLCData.([]interface{})[0].(float64),
+						OHLCData.([]interface{})[1].(string),
+						OHLCData.([]interface{})[2].(string),
+						OHLCData.([]interface{})[3].(string),
+						OHLCData.([]interface{})[4].(string),
+						OHLCData.([]interface{})[5].(string),
+						OHLCData.([]interface{})[6].(string),
+						OHLCData.([]interface{})[7].(float64),
+					}
 
-					fmt.Println(OHLCData)
+					arrOHLC = append(arrOHLC, objOHLC)
 				}
 			}
 		}
 	}
-	fmt.Println("OHLC processed: " + PairName)
+
+	jsonOHLCs, errJson := json.Marshal(arrOHLC)
+	if errJson != nil {
+		panic(errJson.Error())
+	}
+
+	var rowsAffected int
+	execErr := sqlConn.QueryRow("EXEC PUT_InsertOHLCs @JSONData='" + string(jsonOHLCs) + "', @AlternativeName='" + PairName + "'").Scan(&rowsAffected)
+	if execErr != nil {
+		panic(execErr)
+	}
+
+	fmt.Println("OHLC processed: " + PairName + " - Affected: " + strconv.Itoa(rowsAffected) + " - Array Size: " + strconv.Itoa(len(arrOHLC)) + " - " + URL)
 }

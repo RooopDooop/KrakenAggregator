@@ -12,7 +12,10 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/robfig/cron/v3"
 
+	"database/sql"
+
 	krakenLib "J.Morin/KrakenScraper/krakenLib"
+	_ "github.com/denisenkom/go-mssqldb"
 )
 
 func StartWebsocket() {
@@ -59,8 +62,13 @@ func receiveHandler(done chan interface{}, connSocket *websocket.Conn) {
 	defer close(done)
 	CRONScheduler := cron.New()
 
-	var chanWSResponse chan []byte = make(chan []byte)
 	//go WSResponseQueue(connSocket, chanWSResponse)
+
+	sqlConn, sqlErr := sql.Open("sqlserver", "odbc:server=TowerDocker;user id=sa;password=ftbrI3v6I92syKUTX4KT;database=KrakenDB;app name=KrakenClient")
+	if sqlErr != nil {
+		panic(sqlErr)
+	}
+
 	var websocketMutex sync.Mutex
 
 	for {
@@ -86,43 +94,36 @@ func receiveHandler(done chan interface{}, connSocket *websocket.Conn) {
 				CRONScheduler.Remove(job.ID)
 			}
 
-			//for _, strPair := range strings.Split(wsMessage.Message, ", ") {
-			//CRONPair := strPair
 			//OHLC every 10m
-			/*CRONScheduler.AddFunc("@every 10m", func() {
-				go krakenLib.ScheduleJob(connSocket, &websocketMutex, "ScheduleOHLC", "https://api.kraken.com/0/public/OHLC?pair="+CRONPair)
-			})*/
+			CRONScheduler.AddFunc("@every 5m", func() {
+				go krakenLib.ScheduleJob(connSocket, &websocketMutex, "ScheduleOHLC", wsMessage.Message)
+			})
 
 			//Ticker every 1h
-			/*CRONScheduler.AddFunc("@every 1h", func() {
-				go krakenLib.ScheduleJob(connSocket, &websocketMutex, "ScheduleTicker", "https://api.kraken.com/0/public/Ticker?pair="+CRONPair)
-			})*/
+			CRONScheduler.AddFunc("@every 1h", func() {
+				go krakenLib.ScheduleJob(connSocket, &websocketMutex, "ScheduleTicker", wsMessage.Message)
+			})
 
-			//Trades every 5m
-			/*CRONScheduler.AddFunc("@every 5m", func() {
-				go krakenLib.ScheduleJob(connSocket, &websocketMutex, "ScheduleTrade", "https://api.kraken.com/0/public/Trades?pair="+CRONPair)
-			})*/
+			//Trades every 2m
+			CRONScheduler.AddFunc("@every 10m", func() {
+				go krakenLib.ScheduleJob(connSocket, &websocketMutex, "ScheduleTrade", wsMessage.Message)
+			})
 
-			//Orders every 3m
-			/*CRONScheduler.AddFunc("@every 3m", func() {
-				go krakenLib.ScheduleJob(connSocket, &websocketMutex, "ScheduleOrder", "https://api.kraken.com/0/public/Depth?pair="+CRONPair)
-			})*/
-			//}
-
-			CRONScheduler.AddFunc("@every 2m", func() {
+			//Trades every 2m
+			CRONScheduler.AddFunc("@every 5m", func() {
 				go krakenLib.ScheduleJob(connSocket, &websocketMutex, "ScheduleOrder", wsMessage.Message)
 			})
 
 			//TODO write directly to mssql
 			CRONScheduler.Start()
 		case "ProcessTrade":
-			go krakenLib.ProcessTrades(chanWSResponse, wsMessage.Message)
+			go krakenLib.ProcessTrades(sqlConn, wsMessage.Message)
 		case "ProcessTicker":
-			go krakenLib.ProcessTicker(chanWSResponse, wsMessage.Message)
+			go krakenLib.ProcessTicker(sqlConn, wsMessage.Message)
 		case "ProcessOrder":
-			go krakenLib.ProcessOrder(connSocket, &websocketMutex, wsMessage.Message)
+			go krakenLib.ProcessOrder(sqlConn, wsMessage.Message)
 		case "ProcessOHLC":
-			go krakenLib.ProcessOHLC(chanWSResponse, wsMessage.Message)
+			go krakenLib.ProcessOHLC(sqlConn, wsMessage.Message)
 		}
 	}
 }

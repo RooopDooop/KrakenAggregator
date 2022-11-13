@@ -1,15 +1,14 @@
 package krakenLib
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
-	"sync"
-
-	"github.com/gorilla/websocket"
 )
 
 type Order struct {
@@ -20,7 +19,7 @@ type Order struct {
 	Timestamp           int64
 }
 
-func ProcessOrder(connSocket *websocket.Conn, websocketMutex *sync.Mutex, URL string) {
+func ProcessOrder(sqlConn *sql.DB, URL string) {
 	var PairName string = strings.Split(URL, "?pair=")[1]
 
 	resp, err := http.Get(URL)
@@ -79,11 +78,16 @@ func ProcessOrder(connSocket *websocket.Conn, websocketMutex *sync.Mutex, URL st
 		}
 	}
 
-	_, errJson := json.Marshal(arrOrders)
+	jsonOrders, errJson := json.Marshal(arrOrders)
 	if errJson != nil {
 		panic(errJson.Error())
 	}
 
-	//ScheduleJob(connSocket, websocketMutex, "SubmitOrders", string(jsonOrders))
-	fmt.Println("Order processed: " + PairName)
+	var rowsAffected int
+	execErr := sqlConn.QueryRow("EXEC PUT_InsertOrders @JSONData='" + string(jsonOrders) + "', @AlternativeName='" + PairName + "'").Scan(&rowsAffected)
+	if execErr != nil {
+		panic(execErr)
+	}
+
+	fmt.Println("Order processed: " + PairName + " - Affected: " + strconv.Itoa(rowsAffected) + " Array Size: " + strconv.Itoa(len(arrOrders)) + " - " + URL)
 }
