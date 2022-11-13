@@ -64,7 +64,7 @@ func receiveHandler(done chan interface{}, connSocket *websocket.Conn) {
 
 	//go WSResponseQueue(connSocket, chanWSResponse)
 
-	sqlConn, sqlErr := sql.Open("sqlserver", "odbc:server=TowerDocker;user id=sa;password=ftbrI3v6I92syKUTX4KT;database=KrakenDB;app name=KrakenClient")
+	sqlConn, sqlErr := sql.Open("sqlserver", "odbc:server=TowerDocker;user id=sa;password=REMOVED;database=KrakenDB;app name=KrakenClient")
 	if sqlErr != nil {
 		panic(sqlErr)
 	}
