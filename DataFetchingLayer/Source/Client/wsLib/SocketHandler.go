@@ -24,7 +24,7 @@ func StartWebsocket() {
 
 	signal.Notify(interrupt, os.Interrupt) // Notify the interrupt channel for SIGINT
 
-	socketUrl := "ws://TowerDocker:8080/"
+	socketUrl := "ws://172.100.0.10:8080/"
 	connSocket, _, errDial := websocket.DefaultDialer.Dial(socketUrl, nil)
 	if errDial != nil {
 		log.Fatal("Error connecting to Websocket Server:", errDial)
@@ -64,7 +64,7 @@ func receiveHandler(done chan interface{}, connSocket *websocket.Conn) {
 
 	//go WSResponseQueue(connSocket, chanWSResponse)
 
-	sqlConn, sqlErr := sql.Open("sqlserver", "odbc:server=TowerDocker;user id=sa;password=REMOVED;database=KrakenDB;app name=KrakenClient")
+	sqlConn, sqlErr := sql.Open("sqlserver", "odbc:server=172.100.0.5;user id=sa;password=REMOVED;database=KrakenDB;app name=KrakenClient")
 	if sqlErr != nil {
 		panic(sqlErr)
 	}

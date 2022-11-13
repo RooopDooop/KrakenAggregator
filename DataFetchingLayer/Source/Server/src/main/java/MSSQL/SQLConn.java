@@ -14,7 +14,7 @@ public class SQLConn {
     public static Connection getSQL() {
         if (SQLConnection == null) {
             try  {
-                SQLConnection = DriverManager.getConnection("jdbc:sqlserver://TowerDocker:1433; database=KrakenDB; user=sa; password=REMOVED; encrypt=false; trustServerCertificate=false; loginTimeout=30;");
+                SQLConnection = DriverManager.getConnection("jdbc:sqlserver://172.100.0.5:1433; database=KrakenDB; user=sa; password=REMOVED; encrypt=false; trustServerCertificate=false; loginTimeout=30;");
                 System.out.println("Connected to DB!");
             } catch (SQLException e) {
                 e.printStackTrace();
