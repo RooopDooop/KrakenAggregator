@@ -4,10 +4,8 @@ COPY . .
 RUN apt-get -y update
 RUN apt-get -y install ca-certificates curl gnupg lsb-release
 RUN apt -y install openjdk-17-jdk
+ENTRYPOINT java -jar ClientCoordinator-V0.0.1.jar
 
+#docker run --name FetchServer -p 8080:8080  watchmejump/krakenpredictor/server:0.0.1
 
-#ENTRYPOINT go run *.go
-
-#docker run -v /var/run/docker.sock:/var/run/docker.sock -i -t --name pairServer debian
-
-#docker build -t watchmejump/krakenpredictor/pairserver:0.0.1 .
+#docker build -t watchmejump/krakenpredictor/server:0.0.1 .
