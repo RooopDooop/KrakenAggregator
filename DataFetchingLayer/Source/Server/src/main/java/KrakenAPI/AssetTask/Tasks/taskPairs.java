@@ -5,22 +5,14 @@ import MSSQL.Objects.sqlFees;
 import MSSQL.Objects.sqlPair;
 import MSSQL.SQLConn;
 import com.google.gson.Gson;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.internal.LinkedTreeMap;
-import net.minidev.json.JSONArray;
-import net.minidev.json.JSONObject;
-import org.javatuples.Pair;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.sql.Array;
 import java.sql.SQLException;
 import java.util.*;
 

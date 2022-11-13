@@ -1,7 +1,5 @@
 package KrakenAPI.AssetTask.Objects;
 
-import java.math.BigDecimal;
-
 public class krakenFee {
     private final int PairID;
     private final String FeeType;

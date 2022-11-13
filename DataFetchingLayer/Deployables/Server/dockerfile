@@ -1,10 +1,9 @@
 FROM debian
-WORKDIR /KrakenPredictor/Server
+WORKDIR /KrakenPredictor/DataFetching/Server
 COPY . .
-RUN apt-get update
-RUN apt-get install ca-certificates curl gnupg lsb-release
-RUN apt-get update
-RUN apt install openjdk-17-jdk
+RUN apt-get -y update
+RUN apt-get -y install ca-certificates curl gnupg lsb-release
+RUN apt -y install openjdk-17-jdk
 
 
 #ENTRYPOINT go run *.go

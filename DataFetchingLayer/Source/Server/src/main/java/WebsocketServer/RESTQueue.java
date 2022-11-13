@@ -2,8 +2,6 @@ package WebsocketServer;
 
 import org.java_websocket.WebSocket;
 import org.java_websocket.exceptions.WebsocketNotConnectedException;
-
-import java.util.Iterator;
 import java.util.concurrent.PriorityBlockingQueue;
 
 public class RESTQueue extends Thread {
