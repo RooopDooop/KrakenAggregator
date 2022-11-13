@@ -24,7 +24,7 @@ func StartWebsocket() {
 
 	signal.Notify(interrupt, os.Interrupt) // Notify the interrupt channel for SIGINT
 
-	socketUrl := "ws://localhost:8080/"
+	socketUrl := "ws://TowerDocker:8080/"
 	connSocket, _, errDial := websocket.DefaultDialer.Dial(socketUrl, nil)
 	if errDial != nil {
 		log.Fatal("Error connecting to Websocket Server:", errDial)

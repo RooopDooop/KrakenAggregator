@@ -21,7 +21,7 @@ public class App {
         Timer PairPullTimer = new Timer();
         PairPullTimer.scheduleAtFixedRate(new taskPairs(), 0, TimeUnit.HOURS.toMillis(12));
 
-        String host = "localhost";
+        String host = "0.0.0.0";
         int port = 8080;
 
         WebSocketServer server = new websocketRouting(new InetSocketAddress(host, port));
