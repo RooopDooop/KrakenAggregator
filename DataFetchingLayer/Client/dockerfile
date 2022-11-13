@@ -2,7 +2,7 @@ FROM alpine
 WORKDIR /KrakenPredictor/Client
 COPY . .
 RUN apk add gcompat && apk add ca-certificates
-ENTRYPOINT ./KrakenPredictor
+#ENTRYPOINT /KrakenPredictor/Client/KrakenPredictor
 
 #docker build --no-cache -t watchmejump/krakenpredictor/client:0.0.1 .
 #docker run --net krakenNetwork -e PAIR_ENV=XBTUSDC watchmejump/krakenpredictor/client:0.0.1
