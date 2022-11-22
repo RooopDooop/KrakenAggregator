@@ -1,14 +1,17 @@
 package krakenLib
 
 import (
-	"database/sql"
+	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
-	"strconv"
 	"strings"
+
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 type Ticker struct {
@@ -41,7 +44,7 @@ type Ticker struct {
 	OpeningPrice string
 }
 
-func ProcessTicker(sqlConn *sql.DB, URL string) {
+func ProcessTicker(mongoClient *mongo.Client, URL string) {
 	var PairName string = strings.Split(URL, "?pair=")[1]
 
 	resp, err := http.Get(URL)
@@ -61,53 +64,48 @@ func ProcessTicker(sqlConn *sql.DB, URL string) {
 		log.Fatal(errResponse)
 	}
 
-	var arrTickers []Ticker = []Ticker{}
+	TickerCollections := mongoClient.Database("KrakenDB").Collection("Tickers")
 	for _, objResult := range response["result"].(map[string]interface{}) {
-		var objTicker Ticker = Ticker{
-			objResult.(map[string]interface{})["a"].([]interface{})[0].(string),
-			objResult.(map[string]interface{})["a"].([]interface{})[1].(string),
-			objResult.(map[string]interface{})["a"].([]interface{})[2].(string),
+		shaEncoded := sha256.Sum256([]byte(fmt.Sprintf("%v", objResult)))
+		objTicker := bson.M{
+			"AlternativePairName":  PairName,
+			"AskingPrice":          objResult.(map[string]interface{})["a"].([]interface{})[0].(string),
+			"AskingWholeLotVolume": objResult.(map[string]interface{})["a"].([]interface{})[1].(string),
+			"AskingLotVolume":      objResult.(map[string]interface{})["a"].([]interface{})[2].(string),
 
-			objResult.(map[string]interface{})["b"].([]interface{})[0].(string),
-			objResult.(map[string]interface{})["b"].([]interface{})[1].(string),
-			objResult.(map[string]interface{})["b"].([]interface{})[2].(string),
+			"BuyPrice":          objResult.(map[string]interface{})["b"].([]interface{})[0].(string),
+			"BuyWholeLotVolume": objResult.(map[string]interface{})["b"].([]interface{})[1].(string),
+			"BuyLotVolume":      objResult.(map[string]interface{})["b"].([]interface{})[2].(string),
 
-			objResult.(map[string]interface{})["c"].([]interface{})[0].(string),
-			objResult.(map[string]interface{})["c"].([]interface{})[0].(string),
+			"LastTradePrice":  objResult.(map[string]interface{})["c"].([]interface{})[0].(string),
+			"LastTradeVolume": objResult.(map[string]interface{})["c"].([]interface{})[0].(string),
 
-			objResult.(map[string]interface{})["v"].([]interface{})[0].(string),
-			objResult.(map[string]interface{})["v"].([]interface{})[1].(string),
+			"VolumeToday":          objResult.(map[string]interface{})["v"].([]interface{})[0].(string),
+			"VolumeLastTwentyFour": objResult.(map[string]interface{})["v"].([]interface{})[1].(string),
 
-			objResult.(map[string]interface{})["p"].([]interface{})[0].(string),
-			objResult.(map[string]interface{})["p"].([]interface{})[1].(string),
+			"VolumeWeightedToday":          objResult.(map[string]interface{})["p"].([]interface{})[0].(string),
+			"VolumeWeightedLastTwentyFour": objResult.(map[string]interface{})["p"].([]interface{})[1].(string),
 
-			objResult.(map[string]interface{})["t"].([]interface{})[0].(float64),
-			objResult.(map[string]interface{})["t"].([]interface{})[1].(float64),
+			"TradeQuantity":               objResult.(map[string]interface{})["t"].([]interface{})[0].(float64),
+			"TradeQuantityLastTwentyFour": objResult.(map[string]interface{})["t"].([]interface{})[1].(float64),
 
-			objResult.(map[string]interface{})["l"].([]interface{})[0].(string),
-			objResult.(map[string]interface{})["l"].([]interface{})[1].(string),
+			"LowToday":          objResult.(map[string]interface{})["l"].([]interface{})[0].(string),
+			"LowLastTwentyFour": objResult.(map[string]interface{})["l"].([]interface{})[1].(string),
 
-			objResult.(map[string]interface{})["h"].([]interface{})[0].(string),
-			objResult.(map[string]interface{})["h"].([]interface{})[1].(string),
+			"HighToday":          objResult.(map[string]interface{})["h"].([]interface{})[0].(string),
+			"HighLastTwentyFour": objResult.(map[string]interface{})["h"].([]interface{})[1].(string),
 
-			objResult.(map[string]interface{})["o"].(string),
+			"OpeningPrice": objResult.(map[string]interface{})["o"].(string),
+			"SHA256":       shaEncoded,
 		}
 
-		arrTickers = append(arrTickers, objTicker)
+		_, errInsert := TickerCollections.InsertOne(context.Background(), objTicker)
+		if errInsert != nil {
+			if strings.Split(errInsert.Error(), ":")[0] != "write exception" {
+				panic(errInsert)
+			}
+		}
 	}
 
-	jsonTickers, errJson := json.Marshal(arrTickers)
-	if errJson != nil {
-		panic(errJson.Error())
-	}
-
-	var rowsAffected int
-	execErr := sqlConn.QueryRow("EXEC PUT_InsertTickers @JSONData='" + string(jsonTickers) + "', @AlternativeName='" + PairName + "'").Scan(&rowsAffected)
-	if execErr != nil {
-		panic(execErr)
-	}
-
-	fmt.Println("ticker processed: " + PairName + " - Affected: " + strconv.Itoa(rowsAffected) + " Array Size: " + strconv.Itoa(len(arrTickers)) + " - " + URL)
-
-	//fmt.Println(PairName + " - " + string(jsonOrders))
+	fmt.Println("Ticker processed: " + PairName + " - " + URL)
 }

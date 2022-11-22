@@ -1,10 +1,19 @@
 package KrakenAPI.AssetTask.Objects;
 
+import Mongo.MongoConn;
 import com.google.gson.internal.LinkedTreeMap;
+import com.mongodb.MongoException;
+import com.mongodb.MongoWriteException;
+import com.mongodb.client.FindIterable;
+import com.mongodb.client.MongoCollection;
+import com.mongodb.client.model.Updates;
+import org.bson.Document;
 import org.javatuples.Pair;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+
+import static com.mongodb.client.model.Filters.eq;
 
 public class krakenPair {
     private String altName;
@@ -20,13 +29,15 @@ public class krakenPair {
     private int lot_multiplier;
     private ArrayList<Integer> leverage_buy = new ArrayList<>();
     private ArrayList<Integer> leverage_sell = new ArrayList<>();
-    private ArrayList<Pair<Integer, Double>> fees = new ArrayList<>();
-    private ArrayList<Pair<Integer, Double>> fees_maker = new ArrayList<>();
+    private ArrayList<Document> fees = new ArrayList<>();
+    private ArrayList<Document> fees_maker = new ArrayList<>();
     private String fee_volume_currency;
     private int margin_call;
     private int margin_stop;
     private BigDecimal ordermin;
     private BigDecimal costmin;
+    private BigDecimal tick_size;
+    private String status;
 
     public krakenPair(LinkedTreeMap<String, Object> creationData) throws ClassCastException {
         for (String key : creationData.keySet()) {
@@ -125,7 +136,7 @@ public class krakenPair {
                         int Volume = ((ArrayList<Double>) objFee).get(0).intValue();
                         Double Percentage = ((ArrayList<Double>) objFee).get(1);
 
-                        this.fees.add(new Pair<Integer, Double>(Volume, Percentage));
+                        this.fees.add(new Document("Volume", Volume).append("Percentage", Percentage));;
                     }
                 }
                 case "fees_maker" -> {
@@ -136,7 +147,7 @@ public class krakenPair {
                         int Volume = ((ArrayList<Double>) objFee).get(0).intValue();
                         Double Percentage = ((ArrayList<Double>) objFee).get(1);
 
-                        this.fees_maker.add(new Pair<Integer, Double>(Volume, Percentage));
+                        this.fees_maker.add(new Document("Volume", Volume).append("Percentage", Percentage));
                     }
                 }
                 case "fee_volume_currency" -> {
@@ -171,6 +182,18 @@ public class krakenPair {
                     }
                     this.costmin = new BigDecimal(creationData.get(key).toString());
                 }
+                case "tick_size" -> {
+                    if (!creationData.get(key).getClass().getName().equals("java.lang.String")) {
+                        throw new ClassCastException("tick_size was not the correct data type");
+                    }
+                    this.tick_size = new BigDecimal(creationData.get(key).toString());
+                }
+                case "status" -> {
+                    if (!creationData.get(key).getClass().getName().equals("java.lang.String")) {
+                        throw new ClassCastException("status was not the correct data type");
+                    }
+                    this.status = creationData.get(key).toString();
+                }
             }
 
             if (creationData.get("costmin") == null) {
@@ -179,29 +202,15 @@ public class krakenPair {
         }
     }
 
+    //private BigDecimal tick_size;
+    //    private String status;
+
     public String returnAlternativeName() {
         return this.altName;
     }
-
     public String returnWebsocketName() {
         return this.wsname;
     }
-
-    public String ProcessJSON(int BaseID, int QuoteID, int CurrencyID) {
-        return "{\"AlternativePairName\": \"" + this.altName +
-                "\", \"WebsocketPairName\": \"" + this.wsname +
-                "\", \"BaseID\": " + BaseID +
-                ", \"QuoteID\": " + QuoteID +
-                ", \"PairDecimals\": " + this.pair_decimals +
-                ", \"LotDecimals\": " + this.lot_decimals +
-                ", \"LotMultiplier\": " + this.lot_multiplier +
-                ", \"FeeCurrency\": " + CurrencyID +
-                ", \"MarginCall\": " + this.margin_call +
-                ", \"MarginStop\": " + this.margin_stop +
-                ", \"OrderMinimum\": " + this.ordermin +
-                ", \"CostMinimum\": " + this.costmin +"}";
-    }
-
     public String returnCurrencyAsset() { return this.fee_volume_currency; }
     public int returnPairDecimals() { return this.pair_decimals; }
     public int returnLotDecimals() { return this.lot_decimals; }
@@ -226,5 +235,34 @@ public class krakenPair {
         }
 
         return returnList;
+    }
+
+    public void WriteToMongo(String wsName) throws Exception {
+        MongoCollection mongoCollection = MongoConn.getMongo().getDatabase("KrakenDB").getCollection("Assets");
+
+        FindIterable mongoIterator = mongoCollection.find(eq("_id", wsName));
+
+        if (mongoIterator.first() == null) {
+            throw new Exception("Error, asset not found on database");
+        }
+
+        Document BSONPair = new Document("AlternativePairName", this.altName)
+                                .append("WebsocketPairName", this.wsname)
+                                .append("PairDecimals", this.pair_decimals)
+                                .append("LotDecimals", this.lot_decimals)
+                                .append("LotMultiplier", this.lot_multiplier)
+                                .append("FeeCurrency", this.fee_volume_currency)
+                                .append("MarginCall", this.margin_call)
+                                .append("MarginStop", this.margin_stop)
+                                .append("OrderMinimum", this.ordermin)
+                                .append("CostMinimum", this.costmin)
+                                .append("LeverageBuy", leverage_buy)
+                                .append("LeverageSell", leverage_sell)
+                                .append("Fees", fees)
+                                .append("Maker", fees_maker)
+                                .append("TickSize", tick_size)
+                                .append("Status", status);
+
+        mongoCollection.updateOne(eq("_id", wsName), Updates.push("Pairs", BSONPair));
     }
 }

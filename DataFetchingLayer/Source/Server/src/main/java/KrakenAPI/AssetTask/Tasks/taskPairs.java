@@ -1,19 +1,14 @@
 package KrakenAPI.AssetTask.Tasks;
 import KrakenAPI.AssetTask.Objects.krakenFee;
 import KrakenAPI.AssetTask.Objects.krakenPair;
-import MSSQL.Objects.sqlFees;
-import MSSQL.Objects.sqlPair;
-import MSSQL.SQLConn;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.internal.LinkedTreeMap;
-
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.sql.SQLException;
 import java.util.*;
 
 public class taskPairs extends TimerTask {
@@ -33,11 +28,11 @@ public class taskPairs extends TimerTask {
         Map<String, krakenPair> krakenPairs = new HashMap<>();
         Map<String, Integer> existingAssets = new HashMap<>();
 
-        try {
+        /*try {
             existingAssets = new SQLConn().fetchAllAssetIDs();
         } catch (SQLException e) {
             e.printStackTrace();
-        }
+        }*/
 
         try {
             URL url = new URL("https://api.kraken.com/0/public/AssetPairs");
@@ -62,26 +57,36 @@ public class taskPairs extends TimerTask {
                     krakenPairs.put(objKrakenPair.returnAlternativeName(), objKrakenPair);
                 }
 
-                StringBuilder AggregatedAlternativeNames = new StringBuilder();
+                //StringBuilder AggregatedAlternativeNames = new StringBuilder();
 
-                for (krakenPair objPair : krakenPairs.values()) {
+                /*for (krakenPair objPair : krakenPairs.values()) {
                     if (AggregatedAlternativeNames.toString().equals("")) {
                         AggregatedAlternativeNames = new StringBuilder(objPair.returnAlternativeName());
                     } else {
                         AggregatedAlternativeNames.append(",").append(objPair.returnAlternativeName());
                     }
-                }
+                }*/
 
-                Map<String, sqlPair> mapSQLPairs = new HashMap<>();
+                /*Map<String, sqlPair> mapSQLPairs = new HashMap<>();
                 try {
                     mapSQLPairs = new SQLConn().compareAllPairs(AggregatedAlternativeNames.toString());
                 } catch (SQLException e) {
                     e.printStackTrace();
-                }
+                }*/
 
                 for (krakenPair objPair : krakenPairs.values()) {
-                    String[] websocketName = objPair.returnWebsocketName().toString().split("/");
-                    sqlPair searchPair = mapSQLPairs.get(objPair.returnAlternativeName());
+                    String[] websocketName = objPair.returnWebsocketName().split("/");
+
+                    try {
+                        objPair.WriteToMongo(websocketName[0]);
+                    } catch(Exception e) {
+                        e.printStackTrace();
+                    }
+
+
+
+
+                    /*sqlPair searchPair = mapSQLPairs.get(objPair.returnAlternativeName());
 
                     try {
                         if (searchPair.GetPairID() == 0) {
@@ -112,10 +117,10 @@ public class taskPairs extends TimerTask {
                         }
                     } catch (NullPointerException e) {
                         break;
-                    }
+                    }*/
                 }
 
-                JSONInsert.append("]");
+                /*JSONInsert.append("]");
                 JSONUpdate.append("]");
 
                 try {
@@ -128,19 +133,19 @@ public class taskPairs extends TimerTask {
                     new SQLConn().updateBulkPairs(JSONUpdate.toString());
                 } catch (SQLException e) {
                     e.printStackTrace();
-                }
+                }*/
 
-                processFees(arrFees);
+                /*processFees(arrFees);
 
                 processLeverages(hashLeverageBuy, false);
-                processLeverages(hashLeverageSell, true);
+                processLeverages(hashLeverageSell, true);*/
             }
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
     }
 
-    private void processFees(ArrayList<krakenFee> Fees) {
+    /*private void processFees(ArrayList<krakenFee> Fees) {
         try {
             ArrayList<krakenFee> insertFees = new ArrayList<>();
             ArrayList<krakenFee> updateFees = new ArrayList<>();
@@ -180,9 +185,9 @@ public class taskPairs extends TimerTask {
         } catch (SQLException e) {
             e.printStackTrace();
         }
-    }
+    }*/
 
-    private void processLeverages(Map<Integer, ArrayList<Integer>> Leverages, Boolean IsSell) {
+    /*private void processLeverages(Map<Integer, ArrayList<Integer>> Leverages, Boolean IsSell) {
         StringBuilder strRemoveLeverages = new StringBuilder("[");
         StringBuilder strAddLeverages = new StringBuilder("[");
 
@@ -235,5 +240,5 @@ public class taskPairs extends TimerTask {
         } catch (SQLException e) {
             e.printStackTrace();
         }
-    }
+    }*/
 }

@@ -1,26 +1,20 @@
 package krakenLib
 
 import (
-	"database/sql"
+	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
-	"strconv"
 	"strings"
+
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
-type Trade struct {
-	AlternativePairName string `json:"AlternativePairName"`
-	Price               string `json:"Price"`
-	Volume              string `json:"Volume"`
-	Time                string `json:"tradeTime"`
-	BuyOrSell           string `json:"BuyOrSell"`
-	MarketOrLimit       string `json:"MarketOrLimit"`
-}
-
-func ProcessTrades(sqlConn *sql.DB, URL string) {
+func ProcessTrades(mongoClient *mongo.Client, URL string) {
 	var PairName string = strings.Split(URL, "?pair=")[1]
 
 	resp, err := http.Get(URL)
@@ -41,8 +35,7 @@ func ProcessTrades(sqlConn *sql.DB, URL string) {
 		log.Fatal(errResponse)
 	}
 
-	var arrTrades []Trade = []Trade{}
-
+	TradesCollections := mongoClient.Database("KrakenDB").Collection("Trades")
 	if response["result"] != nil {
 		for key, arrRawTrades := range response["result"].(map[string]interface{}) {
 			if key != "last" {
@@ -61,31 +54,27 @@ func ProcessTrades(sqlConn *sql.DB, URL string) {
 						MarketOrLimit = "Market"
 					}
 
-					var objTrade Trade = Trade{
-						PairName,
-						objTrade.([]interface{})[0].(string),
-						objTrade.([]interface{})[1].(string),
-						fmt.Sprintf("%f", objTrade.([]interface{})[2].(float64)),
-						BuyOrSell,
-						MarketOrLimit,
+					shaEncoded := sha256.Sum256([]byte(fmt.Sprintf("%v", objTrade)))
+					objTrade := bson.M{
+						"AlternativePairName": PairName,
+						"Price":               objTrade.([]interface{})[0].(string),
+						"Volume":              objTrade.([]interface{})[1].(string),
+						"Time":                fmt.Sprintf("%f", objTrade.([]interface{})[2].(float64)),
+						"BuyOrSell":           BuyOrSell,
+						"MarketOrLimit":       MarketOrLimit,
+						"SHA256":              shaEncoded,
 					}
 
-					arrTrades = append(arrTrades, objTrade)
+					_, errInsert := TradesCollections.InsertOne(context.Background(), objTrade)
+					if errInsert != nil {
+						if strings.Split(errInsert.Error(), ":")[0] != "write exception" {
+							panic(errInsert)
+						}
+					}
 				}
 			}
 		}
 	}
 
-	jsonTrades, errJson := json.Marshal(arrTrades)
-	if errJson != nil {
-		panic(errJson.Error())
-	}
-
-	var rowsAffected string
-	execErr := sqlConn.QueryRow("EXEC PUT_InsertTrades @JSONData='" + string(jsonTrades) + "', @AlternativeName='" + PairName + "'").Scan(&rowsAffected)
-	if execErr != nil {
-		panic(execErr)
-	}
-
-	fmt.Println("Trade processed: " + PairName + " - Affected: " + rowsAffected + " Array Size: " + strconv.Itoa(len(arrTrades)) + " - " + URL)
+	fmt.Println("Trade processed: " + PairName + " - " + URL)
 }

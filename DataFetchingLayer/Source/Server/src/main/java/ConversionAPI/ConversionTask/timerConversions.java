@@ -1,8 +1,6 @@
 package ConversionAPI.ConversionTask;
 
 import KrakenAPI.AssetTask.Objects.krakenAsset;
-import MSSQL.SQLConn;
-
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;

@@ -17,6 +17,7 @@ dependencies {
     implementation 'com.google.code.gson:gson:2.10'
     implementation 'org.javatuples:javatuples:1.2'
     implementation 'com.microsoft.sqlserver:mssql-jdbc:11.2.1.jre11'
+    implementation 'org.mongodb:mongo-java-driver:3.12.11'
 }
 
 test {

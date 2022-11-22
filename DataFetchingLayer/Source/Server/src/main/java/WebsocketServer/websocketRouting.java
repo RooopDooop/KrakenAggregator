@@ -1,6 +1,7 @@
 package WebsocketServer;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonObject;
 import org.java_websocket.WebSocket;
 import org.java_websocket.handshake.ClientHandshake;
 import org.java_websocket.server.WebSocketServer;
@@ -33,8 +34,10 @@ public class websocketRouting extends WebSocketServer {
     public void onMessage(WebSocket conn, String message) {
         //TODO on message received, push to the queue where it will be handled
         try {
-            wsMessage objReceived = new Gson().fromJson(message, wsMessage.class);
-            objWSQueue.AddMessage(conn, objReceived.returnAction(), objReceived.returnMessage());
+            JsonObject rawReceived = new Gson().fromJson(message, JsonObject.class);
+            //wsMessage objReceived = new wsMessage(conn, rawReceived.get("Action").toString(), rawReceived.get("Message").toString());
+
+            objWSQueue.AddMessage(conn, rawReceived.get("Action").getAsString(), rawReceived.get("Message").getAsString());
         } catch (Exception e) {
             e.printStackTrace();
         }

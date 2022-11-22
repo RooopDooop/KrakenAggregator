@@ -3,24 +3,21 @@ package krakenLib
 import (
 	"encoding/json"
 	"sync"
-	"time"
 
 	"github.com/gorilla/websocket"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type WebsocketCall struct {
-	MessageID int    `json:"MessageID"`
-	Action    string `json:"Action"`
-	TimeSent  int64  `json:"TimeSent"`
-	Message   string `json:"Message"`
+	MessageID primitive.ObjectID `json:"MessageID"`
+	Action    string             `json:"Action"`
+	Message   string             `json:"Message"`
 }
 
 func ScheduleJob(connSocket *websocket.Conn, websocketMutex *sync.Mutex, strAction string, URL string) {
 	var jsonMessage WebsocketCall = WebsocketCall{
-		MessageID: 0,
-		Action:    strAction,
-		TimeSent:  time.Now().Unix(),
-		Message:   URL,
+		Action:  strAction,
+		Message: URL,
 	}
 
 	byteJSON, errMarsh := json.Marshal(jsonMessage)

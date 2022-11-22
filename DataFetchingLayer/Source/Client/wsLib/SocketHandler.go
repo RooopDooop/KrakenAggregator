@@ -1,6 +1,7 @@
 package wsLib
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -11,8 +12,8 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/robfig/cron/v3"
-
-	"database/sql"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 
 	krakenLib "J.Morin/KrakenScraper/krakenLib"
 	_ "github.com/denisenkom/go-mssqldb"
@@ -24,7 +25,7 @@ func StartWebsocket() {
 
 	signal.Notify(interrupt, os.Interrupt) // Notify the interrupt channel for SIGINT
 
-	socketUrl := "ws://172.100.0.10:8080/"
+	socketUrl := "ws://localhost:8081/"
 	connSocket, _, errDial := websocket.DefaultDialer.Dial(socketUrl, nil)
 	if errDial != nil {
 		log.Fatal("Error connecting to Websocket Server:", errDial)
@@ -64,12 +65,19 @@ func receiveHandler(done chan interface{}, connSocket *websocket.Conn) {
 
 	//go WSResponseQueue(connSocket, chanWSResponse)
 
-	sqlConn, sqlErr := sql.Open("sqlserver", "odbc:server=172.100.0.5;user id=sa;password=REMOVED;database=KrakenDB;app name=KrakenClient")
+	/*sqlConn, sqlErr := sql.Open("sqlserver", "odbc:server=172.100.0.5;user id=sa;password=REMOVED;database=KrakenDB;app name=KrakenClient")
 	if sqlErr != nil {
 		panic(sqlErr)
-	}
+	}*/
 
 	var websocketMutex sync.Mutex
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	mongoClient, err := mongo.Connect(ctx, options.Client().ApplyURI("mongodb://TowerDocker:27017"))
+	if err != nil {
+		panic(err)
+	}
 
 	for {
 		_, msg, err := connSocket.ReadMessage()
@@ -84,6 +92,8 @@ func receiveHandler(done chan interface{}, connSocket *websocket.Conn) {
 			panic(errWsMess)
 		}
 
+		fmt.Println(wsMessage.Message)
+
 		switch wsMessage.Action {
 		case "ClientWelcoming":
 			fmt.Println("Successfully connected to server!")
@@ -95,35 +105,35 @@ func receiveHandler(done chan interface{}, connSocket *websocket.Conn) {
 			}
 
 			//OHLC every 10m
-			CRONScheduler.AddFunc("@every 5m", func() {
-				go krakenLib.ScheduleJob(connSocket, &websocketMutex, "ScheduleOHLC", wsMessage.Message)
-			})
+			//CRONScheduler.AddFunc("@every 5m", func() {
+			go krakenLib.ScheduleJob(connSocket, &websocketMutex, "ScheduleOHLC", wsMessage.Message)
+			//})
 
 			//Ticker every 1h
-			CRONScheduler.AddFunc("@every 1h", func() {
-				go krakenLib.ScheduleJob(connSocket, &websocketMutex, "ScheduleTicker", wsMessage.Message)
-			})
+			//CRONScheduler.AddFunc("@every 1h", func() {
+			go krakenLib.ScheduleJob(connSocket, &websocketMutex, "ScheduleTicker", wsMessage.Message)
+			//})
 
 			//Trades every 2m
-			CRONScheduler.AddFunc("@every 10m", func() {
-				go krakenLib.ScheduleJob(connSocket, &websocketMutex, "ScheduleTrade", wsMessage.Message)
-			})
+			//CRONScheduler.AddFunc("@every 10m", func() {
+			go krakenLib.ScheduleJob(connSocket, &websocketMutex, "ScheduleTrade", wsMessage.Message)
+			//})
 
 			//Trades every 2m
-			CRONScheduler.AddFunc("@every 5m", func() {
-				go krakenLib.ScheduleJob(connSocket, &websocketMutex, "ScheduleOrder", wsMessage.Message)
-			})
+			//CRONScheduler.AddFunc("@every 5m", func() {
+			go krakenLib.ScheduleJob(connSocket, &websocketMutex, "ScheduleOrder", wsMessage.Message)
+			//})
 
-			//TODO write directly to mssql
+			//TODO write directly to mongo
 			CRONScheduler.Start()
 		case "ProcessTrade":
-			go krakenLib.ProcessTrades(sqlConn, wsMessage.Message)
+			go krakenLib.ProcessTrades(mongoClient, wsMessage.Message)
 		case "ProcessTicker":
-			go krakenLib.ProcessTicker(sqlConn, wsMessage.Message)
+			go krakenLib.ProcessTicker(mongoClient, wsMessage.Message)
 		case "ProcessOrder":
-			go krakenLib.ProcessOrder(sqlConn, wsMessage.Message)
+			go krakenLib.ProcessOrder(mongoClient, wsMessage.Message)
 		case "ProcessOHLC":
-			go krakenLib.ProcessOHLC(sqlConn, wsMessage.Message)
+			go krakenLib.ProcessOHLC(mongoClient, wsMessage.Message)
 		}
 	}
 }

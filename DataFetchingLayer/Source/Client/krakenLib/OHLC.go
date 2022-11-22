@@ -1,13 +1,16 @@
 package krakenLib
 
 import (
-	"database/sql"
+	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"strconv"
 	"strings"
+
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 type OHLC struct {
@@ -21,7 +24,7 @@ type OHLC struct {
 	Count                 float64
 }
 
-func ProcessOHLC(sqlConn *sql.DB, URL string) {
+func ProcessOHLC(mongoClient *mongo.Client, URL string) {
 	var PairName string = strings.Split(URL, "?pair=")[1]
 
 	resp, errCall := http.Get(URL + "&interval=1")
@@ -42,39 +45,35 @@ func ProcessOHLC(sqlConn *sql.DB, URL string) {
 		panic(errResponse)
 	}
 
-	var arrOHLC []OHLC = []OHLC{}
-
+	OHLCCollections := mongoClient.Database("KrakenDB").Collection("OHLCs")
 	if response["result"] != nil {
 		for headerStr, objResult := range response["result"].(map[string]interface{}) {
 			if headerStr != "last" {
 				for _, OHLCData := range objResult.([]interface{}) {
-					var objOHLC OHLC = OHLC{
-						OHLCData.([]interface{})[0].(float64),
-						OHLCData.([]interface{})[1].(string),
-						OHLCData.([]interface{})[2].(string),
-						OHLCData.([]interface{})[3].(string),
-						OHLCData.([]interface{})[4].(string),
-						OHLCData.([]interface{})[5].(string),
-						OHLCData.([]interface{})[6].(string),
-						OHLCData.([]interface{})[7].(float64),
+					shaEncoded := sha256.Sum256([]byte(fmt.Sprintf("%v", OHLCData)))
+					objOHLC := bson.M{
+						"AlternativePairName":   PairName,
+						"Epoch":                 OHLCData.([]interface{})[0].(float64),
+						"Open":                  OHLCData.([]interface{})[1].(string),
+						"High":                  OHLCData.([]interface{})[2].(string),
+						"Low":                   OHLCData.([]interface{})[3].(string),
+						"Close":                 OHLCData.([]interface{})[4].(string),
+						"VolumeWeightedAverage": OHLCData.([]interface{})[5].(string),
+						"Volume":                OHLCData.([]interface{})[6].(string),
+						"Count":                 OHLCData.([]interface{})[7].(float64),
+						"SHA256":                shaEncoded,
 					}
 
-					arrOHLC = append(arrOHLC, objOHLC)
+					_, errInsert := OHLCCollections.InsertOne(context.Background(), objOHLC)
+					if errInsert != nil {
+						if strings.Split(errInsert.Error(), ":")[0] != "write exception" {
+							panic(errInsert)
+						}
+					}
 				}
 			}
 		}
 	}
 
-	jsonOHLCs, errJson := json.Marshal(arrOHLC)
-	if errJson != nil {
-		panic(errJson.Error())
-	}
-
-	var rowsAffected int
-	execErr := sqlConn.QueryRow("EXEC PUT_InsertOHLCs @JSONData='" + string(jsonOHLCs) + "', @AlternativeName='" + PairName + "'").Scan(&rowsAffected)
-	if execErr != nil {
-		panic(execErr)
-	}
-
-	fmt.Println("OHLC processed: " + PairName + " - Affected: " + strconv.Itoa(rowsAffected) + " - Array Size: " + strconv.Itoa(len(arrOHLC)) + " - " + URL)
+	fmt.Println("OHLC processed: " + PairName + " - " + URL)
 }

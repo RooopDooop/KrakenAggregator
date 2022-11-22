@@ -1,15 +1,8 @@
 package WebsocketServer;
 
-import MSSQL.Objects.sqlPair;
-import MSSQL.SQLConn;
+import Mongo.MongoConn;
 import org.java_websocket.WebSocket;
-import org.javatuples.Octet;
-
-import java.math.BigDecimal;
-import java.sql.SQLException;
-import java.util.Arrays;
 import java.util.HashMap;
-import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingDeque;
@@ -61,9 +54,11 @@ public class websocketQueue extends Thread {
     }
 
     private void ProcessMessage(wsMessage objMessage) {
-                if (objMessage.returnID() == 0) {
-                    objMessage.generateID(objMessage.returnConn());
-                }
+                /*if (objMessage.returnID() == null) {
+                    objMessage.WriteToMongo(objMessage.returnConn());
+                }*/
+
+        System.out.println("Processing: " + objMessage.returnAction());
 
                 switch (objMessage.returnAction()) {
                     case "ClientWelcoming" -> {
@@ -106,20 +101,13 @@ public class websocketQueue extends Thread {
 
         if (this.listClientConnections.size() > 0) {
             HashMap<Integer, String> clientAssignment = new HashMap<>();
-            Map<Integer, sqlPair> mapSQLPairs = new HashMap<>();
-
-            try {
-                mapSQLPairs = new SQLConn().getAllPairs();
-            } catch (SQLException e) {
-                e.printStackTrace();
-            }
 
             int latestInput = 0;
-            for (sqlPair objPair : mapSQLPairs.values()) {
+            for (String strPair : MongoConn.FindPairs()) {
                 if (clientAssignment.get(latestInput) == null) {
-                    clientAssignment.put(latestInput, objPair.GetAlternativeName());
+                    clientAssignment.put(latestInput, strPair);
                 } else {
-                    clientAssignment.put(latestInput, clientAssignment.get(latestInput) + ", " + objPair.GetAlternativeName());
+                    clientAssignment.put(latestInput, clientAssignment.get(latestInput) + ", " + strPair);
                 }
 
                 latestInput++;
@@ -141,9 +129,5 @@ public class websocketQueue extends Thread {
             this.objJobQueue.ClearJobs();
             System.out.println("All clients have disconnected");
         }
-    }
-
-    public int returnClientCount() {
-        return this.listClientConnections.size();
     }
 }
