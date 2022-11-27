@@ -43,12 +43,12 @@ func ProcessOrder(mongoClient *mongo.Client, URL string) {
 					for _, objBid := range objBook.([]interface{}) {
 						shaEncoded := sha256.Sum256([]byte(fmt.Sprintf("%v", objBid)))
 						objBid := bson.M{
+							"_id":                 shaEncoded,
 							"AlternativePairName": PairName,
 							"Type":                "Bid",
 							"Epoch":               int64(objBid.([]interface{})[2].(float64)),
 							"Price":               fmt.Sprint(objBid.([]interface{})[0]),
 							"Volume":              fmt.Sprint(objBid.([]interface{})[1]),
-							"SHA256":              shaEncoded,
 						}
 
 						_, errInsert := orderCollections.InsertOne(context.Background(), objBid)
@@ -62,12 +62,12 @@ func ProcessOrder(mongoClient *mongo.Client, URL string) {
 					for _, objAsk := range objBook.([]interface{}) {
 						shaEncoded := sha256.Sum256([]byte(fmt.Sprintf("%v", objAsk)))
 						objAsk := bson.M{
+							"_id":                 shaEncoded,
 							"AlternativePairName": PairName,
 							"Type":                "Ask",
 							"Epoch":               int64(objAsk.([]interface{})[2].(float64)),
 							"Price":               fmt.Sprint(objAsk.([]interface{})[0]),
 							"Volume":              fmt.Sprint(objAsk.([]interface{})[1]),
-							"SHA256":              shaEncoded,
 						}
 
 						_, errInsert := orderCollections.InsertOne(context.Background(), objAsk)

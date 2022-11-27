@@ -68,6 +68,7 @@ func ProcessTicker(mongoClient *mongo.Client, URL string) {
 	for _, objResult := range response["result"].(map[string]interface{}) {
 		shaEncoded := sha256.Sum256([]byte(fmt.Sprintf("%v", objResult)))
 		objTicker := bson.M{
+			"_id":                  shaEncoded,
 			"AlternativePairName":  PairName,
 			"AskingPrice":          objResult.(map[string]interface{})["a"].([]interface{})[0].(string),
 			"AskingWholeLotVolume": objResult.(map[string]interface{})["a"].([]interface{})[1].(string),
@@ -96,7 +97,6 @@ func ProcessTicker(mongoClient *mongo.Client, URL string) {
 			"HighLastTwentyFour": objResult.(map[string]interface{})["h"].([]interface{})[1].(string),
 
 			"OpeningPrice": objResult.(map[string]interface{})["o"].(string),
-			"SHA256":       shaEncoded,
 		}
 
 		_, errInsert := TickerCollections.InsertOne(context.Background(), objTicker)

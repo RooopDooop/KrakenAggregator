@@ -18,16 +18,12 @@ public class wsMessage {
         }
     }
 
-    /*private final ObjectId MessageID;
-    private final String Action;
-    private final String Message;*/
     private final ObjectId MessageID;
     private final String Action;
     private final String Message;
     private final WebSocket conn;
 
     public wsMessage(WebSocket conn, String Action, String Message) {
-        System.out.println(Action);
         this.MessageID = MongoConn.WriteLog(Action, Message, conn);
         this.Action = Action;
         this.Message = Message;

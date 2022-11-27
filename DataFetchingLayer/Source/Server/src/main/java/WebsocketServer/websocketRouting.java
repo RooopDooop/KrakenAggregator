@@ -35,8 +35,6 @@ public class websocketRouting extends WebSocketServer {
         //TODO on message received, push to the queue where it will be handled
         try {
             JsonObject rawReceived = new Gson().fromJson(message, JsonObject.class);
-            //wsMessage objReceived = new wsMessage(conn, rawReceived.get("Action").toString(), rawReceived.get("Message").toString());
-
             objWSQueue.AddMessage(conn, rawReceived.get("Action").getAsString(), rawReceived.get("Message").getAsString());
         } catch (Exception e) {
             e.printStackTrace();

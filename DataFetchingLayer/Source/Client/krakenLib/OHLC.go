@@ -52,6 +52,7 @@ func ProcessOHLC(mongoClient *mongo.Client, URL string) {
 				for _, OHLCData := range objResult.([]interface{}) {
 					shaEncoded := sha256.Sum256([]byte(fmt.Sprintf("%v", OHLCData)))
 					objOHLC := bson.M{
+						"_id":                   shaEncoded,
 						"AlternativePairName":   PairName,
 						"Epoch":                 OHLCData.([]interface{})[0].(float64),
 						"Open":                  OHLCData.([]interface{})[1].(string),
@@ -61,7 +62,6 @@ func ProcessOHLC(mongoClient *mongo.Client, URL string) {
 						"VolumeWeightedAverage": OHLCData.([]interface{})[5].(string),
 						"Volume":                OHLCData.([]interface{})[6].(string),
 						"Count":                 OHLCData.([]interface{})[7].(float64),
-						"SHA256":                shaEncoded,
 					}
 
 					_, errInsert := OHLCCollections.InsertOne(context.Background(), objOHLC)

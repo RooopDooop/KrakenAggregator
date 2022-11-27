@@ -1,50 +1,31 @@
 package Mongo;
 
 import com.mongodb.*;
-import com.mongodb.client.FindIterable;
-import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
-import com.mongodb.client.model.Filters;
-import com.mongodb.client.model.Updates;
-import com.mongodb.client.result.UpdateResult;
 import org.bson.Document;
-import org.bson.conversions.Bson;
 import org.bson.types.ObjectId;
 import org.java_websocket.WebSocket;
-
 import java.util.ArrayList;
-import java.util.function.Consumer;
 
 public class MongoConn {
     private static MongoClient mongoClient;
     private static MongoDatabase mongoDatabase;
 
-    //MongoCollection mongoCollection = mongoDatabase.getCollection("Assets");
-
     public MongoConn() {
         getMongo();
     }
-
     public static MongoClient getMongo() {
         if (mongoClient == null) {
-            mongoClient = new MongoClient(new MongoClientURI("mongodb://TowerDocker:27017"));
+            mongoClient = new MongoClient(new MongoClientURI("mongodb://172.100.0.5:27017"));
             mongoDatabase = mongoClient.getDatabase("KrakenDB");
         }
 
         return mongoClient;
     }
-
     public static ObjectId WriteLog(String Action, String Message, WebSocket connection) {
         Document objMessage = new Document("Action", Action).append("Message", Message).append("ServerConnection", connection.getLocalSocketAddress().toString()).append("ClientConnection", connection.getRemoteSocketAddress().toString());
         mongoDatabase.getCollection("wsLogs").insertOne(objMessage);
-
-        System.out.println("Writing log: " + objMessage);
-
-        ObjectId test = (ObjectId)objMessage.get("_id");
-
-        System.out.println(test.toHexString());
-
-        return test;
+        return (ObjectId)objMessage.get("_id");
     }
 
     public static ArrayList<String> FindPairs() {

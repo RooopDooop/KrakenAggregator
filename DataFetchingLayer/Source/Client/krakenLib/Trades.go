@@ -56,13 +56,13 @@ func ProcessTrades(mongoClient *mongo.Client, URL string) {
 
 					shaEncoded := sha256.Sum256([]byte(fmt.Sprintf("%v", objTrade)))
 					objTrade := bson.M{
+						"_id":                 shaEncoded,
 						"AlternativePairName": PairName,
 						"Price":               objTrade.([]interface{})[0].(string),
 						"Volume":              objTrade.([]interface{})[1].(string),
 						"Time":                fmt.Sprintf("%f", objTrade.([]interface{})[2].(float64)),
 						"BuyOrSell":           BuyOrSell,
 						"MarketOrLimit":       MarketOrLimit,
-						"SHA256":              shaEncoded,
 					}
 
 					_, errInsert := TradesCollections.InsertOne(context.Background(), objTrade)

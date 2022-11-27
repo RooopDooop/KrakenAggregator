@@ -202,9 +202,6 @@ public class krakenPair {
         }
     }
 
-    //private BigDecimal tick_size;
-    //    private String status;
-
     public String returnAlternativeName() {
         return this.altName;
     }

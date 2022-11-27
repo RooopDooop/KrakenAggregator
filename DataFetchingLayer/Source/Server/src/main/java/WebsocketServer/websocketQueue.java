@@ -54,45 +54,37 @@ public class websocketQueue extends Thread {
     }
 
     private void ProcessMessage(wsMessage objMessage) {
-                /*if (objMessage.returnID() == null) {
-                    objMessage.WriteToMongo(objMessage.returnConn());
-                }*/
+         switch (objMessage.returnAction()) {
+             case "ClientWelcoming" -> {
+                 objMessage.returnConn().send(objMessage.returnJSON());
+             }
+             case "AssignPairs" -> {
+                 System.out.println("Allocating Pairs to: " + objMessage.returnConn().getRemoteSocketAddress());
+                 objMessage.returnConn().send(objMessage.returnJSON());
+             }
+             case "ClientDisconnected" -> {
+                 System.out.println("Client disconnected: " + objMessage.returnConn().getRemoteSocketAddress());
+             }
+             case "ScheduleTrade", "ScheduleOrder", "ScheduleTicker", "ScheduleOHLC" -> {
+                 String targetURL = "";
 
-        System.out.println("Processing: " + objMessage.returnAction());
-
-                switch (objMessage.returnAction()) {
-                    case "ClientWelcoming" -> {
-                        objMessage.returnConn().send(objMessage.returnJSON());
-                    }
-                    case "AssignPairs" -> {
-                        System.out.println("Allocating Pairs to: " + objMessage.returnConn().getRemoteSocketAddress());
-                        objMessage.returnConn().send(objMessage.returnJSON());
-                    }
-                    case "ClientDisconnected" -> {
-                        System.out.println("Client disconnected: " + objMessage.returnConn().getRemoteSocketAddress());
-                    }
-                    case "ScheduleTrade", "ScheduleOrder", "ScheduleTicker", "ScheduleOHLC" -> {
-                        String targetURL = "";
-
-                        if (Objects.equals(objMessage.returnAction(), "ScheduleTrade")) {
-                            targetURL = "https://api.kraken.com/0/public/Trades?pair=";
-                        } else if (Objects.equals(objMessage.returnAction(), "ScheduleOrder")) {
-                            targetURL = "https://api.kraken.com/0/public/Depth?pair=";
-                        } else if (Objects.equals(objMessage.returnAction(), "ScheduleTicker")) {
-                            targetURL = "https://api.kraken.com/0/public/Ticker?pair=";
-                        } else if (Objects.equals(objMessage.returnAction(), "ScheduleOHLC")) {
-                            targetURL = "https://api.kraken.com/0/public/OHLC?pair=";
-                        }
-
-                        try {
-                            for (String strPair : objMessage.returnMessage().split(", ")) {
-                                objJobQueue.AddJob(objMessage.returnConn(), objMessage.returnAction(), targetURL + strPair);
-                            }
-                        } catch (Exception e) {
-                            e.printStackTrace();
-                        }
-                    }
-
+                 if (Objects.equals(objMessage.returnAction(), "ScheduleTrade")) {
+                     targetURL = "https://api.kraken.com/0/public/Trades?pair=";
+                 } else if (Objects.equals(objMessage.returnAction(), "ScheduleOrder")) {
+                     targetURL = "https://api.kraken.com/0/public/Depth?pair=";
+                 } else if (Objects.equals(objMessage.returnAction(), "ScheduleTicker")) {
+                     targetURL = "https://api.kraken.com/0/public/Ticker?pair=";
+                 } else if (Objects.equals(objMessage.returnAction(), "ScheduleOHLC")) {
+                     targetURL = "https://api.kraken.com/0/public/OHLC?pair=";
+                 }
+                 try {
+                     for (String strPair : objMessage.returnMessage().split(", ")) {
+                         objJobQueue.AddJob(objMessage.returnConn(), objMessage.returnAction(), targetURL + strPair);
+                     }
+                 } catch (Exception e) {
+                     e.printStackTrace();
+                 }
+             }
         };
     }
 
