@@ -96,23 +96,23 @@ func receiveHandler(done chan interface{}, connSocket *websocket.Conn) {
 			}
 
 			//OHLC every 10m
-			CRONScheduler.AddFunc("@every 5m", func() {
+			CRONScheduler.AddFunc("@every 10m", func() {
 				go krakenLib.ScheduleJob(connSocket, &websocketMutex, "ScheduleOHLC", wsMessage.Message)
 			})
 
 			//Ticker every 1h
-			CRONScheduler.AddFunc("@every 1h", func() {
+			CRONScheduler.AddFunc("@every 30m", func() {
 				go krakenLib.ScheduleJob(connSocket, &websocketMutex, "ScheduleTicker", wsMessage.Message)
 			})
 
 			//Trades every 2m
-			CRONScheduler.AddFunc("@every 10m", func() {
+			CRONScheduler.AddFunc("@every 20m", func() {
 				go krakenLib.ScheduleJob(connSocket, &websocketMutex, "ScheduleTrade", wsMessage.Message)
 			})
 
-			//Trades every 2m
-			CRONScheduler.AddFunc("@every 5m", func() {
-				go krakenLib.ScheduleJob(connSocket, &websocketMutex, "ScheduleOrder", wsMessage.Message)
+			//Orders every 2m
+			CRONScheduler.AddFunc("@every 10m", func() {
+				krakenLib.ScheduleJob(connSocket, &websocketMutex, "ScheduleOrder", wsMessage.Message)
 			})
 
 			//TODO write directly to mongo

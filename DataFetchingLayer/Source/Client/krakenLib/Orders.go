@@ -8,7 +8,9 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -35,6 +37,9 @@ func ProcessOrder(mongoClient *mongo.Client, URL string) {
 		log.Fatal(errResponse)
 	}
 
+	var arrDocuments []interface{}
+
+	now := time.Now()
 	orderCollections := mongoClient.Database("KrakenDB").Collection("Orders")
 	if response["result"] != nil {
 		for _, objResult := range response["result"].(map[string]interface{}) {
@@ -44,6 +49,7 @@ func ProcessOrder(mongoClient *mongo.Client, URL string) {
 						shaEncoded := sha256.Sum256([]byte(fmt.Sprintf("%v", objBid)))
 						objBid := bson.M{
 							"_id":                 shaEncoded,
+							"LocalInsertTime":     now.Unix(),
 							"AlternativePairName": PairName,
 							"Type":                "Bid",
 							"Epoch":               int64(objBid.([]interface{})[2].(float64)),
@@ -51,18 +57,14 @@ func ProcessOrder(mongoClient *mongo.Client, URL string) {
 							"Volume":              fmt.Sprint(objBid.([]interface{})[1]),
 						}
 
-						_, errInsert := orderCollections.InsertOne(context.Background(), objBid)
-						if errInsert != nil {
-							if strings.Split(errInsert.Error(), ":")[0] != "write exception" {
-								panic(errInsert)
-							}
-						}
+						arrDocuments = append(arrDocuments, objBid)
 					}
 				} else if interfaceHeader == "asks" {
 					for _, objAsk := range objBook.([]interface{}) {
 						shaEncoded := sha256.Sum256([]byte(fmt.Sprintf("%v", objAsk)))
 						objAsk := bson.M{
 							"_id":                 shaEncoded,
+							"LocalInsertTime":     now.Unix(),
 							"AlternativePairName": PairName,
 							"Type":                "Ask",
 							"Epoch":               int64(objAsk.([]interface{})[2].(float64)),
@@ -70,17 +72,19 @@ func ProcessOrder(mongoClient *mongo.Client, URL string) {
 							"Volume":              fmt.Sprint(objAsk.([]interface{})[1]),
 						}
 
-						_, errInsert := orderCollections.InsertOne(context.Background(), objAsk)
-						if errInsert != nil {
-							if strings.Split(errInsert.Error(), ":")[0] != "write exception" {
-								panic(errInsert)
-							}
-						}
+						arrDocuments = append(arrDocuments, objAsk)
 					}
 				}
 			}
 		}
-	}
 
-	fmt.Println("Order processed: " + PairName + " - " + URL)
+		resultsInsert, errInsert := orderCollections.InsertMany(context.Background(), arrDocuments)
+		if errInsert != nil {
+			if strings.Split(errInsert.Error(), ":")[0] != "bulk write exception" {
+				panic(errInsert)
+			}
+		}
+
+		fmt.Println(strconv.FormatInt(now.Unix(), 10) + " - Order processed: " + PairName + " - " + URL + " - Inserted Quantity: " + strconv.Itoa(len(resultsInsert.InsertedIDs)))
+	}
 }

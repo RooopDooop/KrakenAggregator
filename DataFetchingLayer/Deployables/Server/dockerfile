@@ -6,6 +6,6 @@ RUN apt-get -y install ca-certificates curl gnupg lsb-release
 RUN apt -y install openjdk-17-jdk
 ENTRYPOINT java -jar ClientCoordinator-V0.0.1.jar
 
-#docker run --restart=unless-stopped --name FetchServer --net netPredictor --ip 172.100.0.10 -p 8080:8080 -d watchmejump/krakenpredictor/server:0.0.2
+#docker run --restart=unless-stopped --name FetchServer --net netPredictor --ip 172.100.0.10 -p 8080:8080 -d watchmejump/krakenpredictor/server:0.0.3
 
-#docker build -t watchmejump/krakenpredictor/server:0.0.2 .
+#docker build -t watchmejump/krakenpredictor/server:0.0.3 .

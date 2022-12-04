@@ -4,10 +4,9 @@ COPY . .
 RUN apk add gcompat && apk add ca-certificates
 ENTRYPOINT ./Client
 
-
 #ENTRYPOINT /KrakenPredictor/Client/KrakenPredictor
 
-#docker build --no-cache -t watchmejump/krakenpredictor/client:0.0.2 .
-#docker run --restart=unless-stopped -d --net netPredictor watchmejump/krakenpredictor/client:0.0.2
+#docker build --no-cache -t watchmejump/krakenpredictor/client:0.0.3 .
+#docker run --restart=unless-stopped -d --net netPredictor watchmejump/krakenpredictor/client:0.0.3
 
 #env GOOS=linux GOARCH=amd64 go build *.go

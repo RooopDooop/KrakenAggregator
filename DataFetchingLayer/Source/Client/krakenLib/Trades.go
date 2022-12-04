@@ -8,7 +8,9 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -35,6 +37,9 @@ func ProcessTrades(mongoClient *mongo.Client, URL string) {
 		log.Fatal(errResponse)
 	}
 
+	var arrDocuments []interface{}
+
+	now := time.Now()
 	TradesCollections := mongoClient.Database("KrakenDB").Collection("Trades")
 	if response["result"] != nil {
 		for key, arrRawTrades := range response["result"].(map[string]interface{}) {
@@ -57,6 +62,7 @@ func ProcessTrades(mongoClient *mongo.Client, URL string) {
 					shaEncoded := sha256.Sum256([]byte(fmt.Sprintf("%v", objTrade)))
 					objTrade := bson.M{
 						"_id":                 shaEncoded,
+						"LocalInsertTime":     now.Unix(),
 						"AlternativePairName": PairName,
 						"Price":               objTrade.([]interface{})[0].(string),
 						"Volume":              objTrade.([]interface{})[1].(string),
@@ -65,16 +71,18 @@ func ProcessTrades(mongoClient *mongo.Client, URL string) {
 						"MarketOrLimit":       MarketOrLimit,
 					}
 
-					_, errInsert := TradesCollections.InsertOne(context.Background(), objTrade)
-					if errInsert != nil {
-						if strings.Split(errInsert.Error(), ":")[0] != "write exception" {
-							panic(errInsert)
-						}
-					}
+					arrDocuments = append(arrDocuments, objTrade)
 				}
 			}
 		}
-	}
 
-	fmt.Println("Trade processed: " + PairName + " - " + URL)
+		resultsInsert, errInsert := TradesCollections.InsertMany(context.Background(), arrDocuments)
+		if errInsert != nil {
+			if strings.Split(errInsert.Error(), ":")[0] != "bulk write exception" {
+				panic(errInsert)
+			}
+		}
+
+		fmt.Println(strconv.FormatInt(now.Unix(), 10) + " - Trade processed: " + PairName + " - " + URL + " - Inserted Quantity: " + strconv.Itoa(len(resultsInsert.InsertedIDs)))
+	}
 }

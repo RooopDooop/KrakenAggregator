@@ -2,6 +2,8 @@ package WebsocketServer;
 
 import org.java_websocket.WebSocket;
 import org.java_websocket.exceptions.WebsocketNotConnectedException;
+
+import java.time.Instant;
 import java.util.concurrent.PriorityBlockingQueue;
 
 public class RESTQueue extends Thread {
@@ -21,7 +23,7 @@ public class RESTQueue extends Thread {
                     }
                 });
 
-                System.out.println("Running job: " + objJob.returnTargetURL() + " - Jobs left: " + this.jobQueue.size());
+                System.out.println(System.currentTimeMillis() + " - Running job: " + objJob.returnTargetURL() + " - Jobs left: " + this.jobQueue.size());
                 ProcessJob(objJob, System.currentTimeMillis());
 
 

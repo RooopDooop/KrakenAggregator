@@ -8,7 +8,9 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -64,11 +66,15 @@ func ProcessTicker(mongoClient *mongo.Client, URL string) {
 		log.Fatal(errResponse)
 	}
 
+	var arrDocuments []interface{}
+
+	now := time.Now()
 	TickerCollections := mongoClient.Database("KrakenDB").Collection("Tickers")
 	for _, objResult := range response["result"].(map[string]interface{}) {
 		shaEncoded := sha256.Sum256([]byte(fmt.Sprintf("%v", objResult)))
 		objTicker := bson.M{
 			"_id":                  shaEncoded,
+			"LocalInsertTime":      now.Unix(),
 			"AlternativePairName":  PairName,
 			"AskingPrice":          objResult.(map[string]interface{})["a"].([]interface{})[0].(string),
 			"AskingWholeLotVolume": objResult.(map[string]interface{})["a"].([]interface{})[1].(string),
@@ -99,13 +105,15 @@ func ProcessTicker(mongoClient *mongo.Client, URL string) {
 			"OpeningPrice": objResult.(map[string]interface{})["o"].(string),
 		}
 
-		_, errInsert := TickerCollections.InsertOne(context.Background(), objTicker)
-		if errInsert != nil {
-			if strings.Split(errInsert.Error(), ":")[0] != "write exception" {
-				panic(errInsert)
-			}
+		arrDocuments = append(arrDocuments, objTicker)
+	}
+
+	resultsInsert, errInsert := TickerCollections.InsertMany(context.Background(), arrDocuments)
+	if errInsert != nil {
+		if strings.Split(errInsert.Error(), ":")[0] != "bulk write exception" {
+			panic(errInsert)
 		}
 	}
 
-	fmt.Println("Ticker processed: " + PairName + " - " + URL)
+	fmt.Println(strconv.FormatInt(now.Unix(), 10) + " - Ticker processed: " + PairName + " - " + URL + " - Inserted Quantity: " + strconv.Itoa(len(resultsInsert.InsertedIDs)))
 }

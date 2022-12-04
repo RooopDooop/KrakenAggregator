@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strconv"
 	"strings"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -45,6 +47,9 @@ func ProcessOHLC(mongoClient *mongo.Client, URL string) {
 		panic(errResponse)
 	}
 
+	var arrDocuments []interface{}
+
+	now := time.Now()
 	OHLCCollections := mongoClient.Database("KrakenDB").Collection("OHLCs")
 	if response["result"] != nil {
 		for headerStr, objResult := range response["result"].(map[string]interface{}) {
@@ -53,6 +58,7 @@ func ProcessOHLC(mongoClient *mongo.Client, URL string) {
 					shaEncoded := sha256.Sum256([]byte(fmt.Sprintf("%v", OHLCData)))
 					objOHLC := bson.M{
 						"_id":                   shaEncoded,
+						"LocalInsertTime":       now.Unix(),
 						"AlternativePairName":   PairName,
 						"Epoch":                 OHLCData.([]interface{})[0].(float64),
 						"Open":                  OHLCData.([]interface{})[1].(string),
@@ -64,16 +70,18 @@ func ProcessOHLC(mongoClient *mongo.Client, URL string) {
 						"Count":                 OHLCData.([]interface{})[7].(float64),
 					}
 
-					_, errInsert := OHLCCollections.InsertOne(context.Background(), objOHLC)
-					if errInsert != nil {
-						if strings.Split(errInsert.Error(), ":")[0] != "write exception" {
-							panic(errInsert)
-						}
-					}
+					arrDocuments = append(arrDocuments, objOHLC)
 				}
 			}
 		}
 	}
 
-	fmt.Println("OHLC processed: " + PairName + " - " + URL)
+	resultsInsert, errInsert := OHLCCollections.InsertMany(context.Background(), arrDocuments)
+	if errInsert != nil {
+		if strings.Split(errInsert.Error(), ":")[0] != "bulk write exception" {
+			panic(errInsert)
+		}
+	}
+
+	fmt.Println(strconv.FormatInt(now.Unix(), 10) + " - OHLC processed: " + PairName + " - " + URL + " - Inserted Quantity: " + strconv.Itoa(len(resultsInsert.InsertedIDs)))
 }
